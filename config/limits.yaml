@@ -1,0 +1,32 @@
+hard_limits:
+  max_subagents_per_report: 20
+  target_subagents_initiation: 5-10
+  max_tool_calls_per_subagent: 20
+  target_tool_calls_per_subagent: 5-15
+  approx_max_sources_per_subagent: 100
+process_rules:
+  thesis_written_last: true
+  lead_writes_entire_report: true
+  numbers_must_come_from_code_or_sourced_findings: true
+  raw_search_results_must_not_reach_lead: true
+  red_team_runs_in_fresh_context: true
+  subagents_self_terminate_on_diminishing_returns: true
+token_budgets:
+  initiation: 1500000-2500000
+  quarterly: 500000-900000
+  flash: 150000-400000
+report_tiers:
+  initiation:
+    sections: all
+    typical_length_pages: 25-40
+  quarterly:
+    sections: focused_update_subset
+    typical_length_pages: 6-10
+  flash:
+    sections: event_driven_subset
+    typical_length_pages: 2-4
+checkpointing:
+  required:
+    - after_plan_write
+    - after_each_subagent_wave
+    - before_report_writing

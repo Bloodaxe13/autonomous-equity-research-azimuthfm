@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://azimuth.local/schemas/task_input.schema.json",
+  "title": "TaskInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ticker",
+    "tier",
+    "run_id",
+    "triggering_event",
+    "prior_report"
+  ],
+  "properties": {
+    "ticker": {"type": "string", "minLength": 1},
+    "tier": {"type": "string", "enum": ["initiation", "quarterly", "flash"]},
+    "run_id": {"type": "string", "minLength": 1},
+    "triggering_event": {"type": "string", "minLength": 1},
+    "prior_report": {
+      "anyOf": [
+        {"type": "object"},
+        {"type": "null"}
+      ]
+    }
+  }
+}

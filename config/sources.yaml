@@ -1,0 +1,43 @@
+source_tiers:
+  tier_1:
+    label: primary
+    description: Company-controlled or market-primary sources.
+    examples:
+      - ASX announcements
+      - annual reports
+      - half-year reports
+      - quarterly activity reports
+      - investor presentations
+      - investor relations websites
+  tier_2:
+    label: secondary_reliable
+    description: High-quality external records and reputable press.
+    examples:
+      - ASIC filings
+      - Australian Business Register
+      - regulator databases
+      - reputable financial press
+  tier_3:
+    label: tertiary
+    description: Useful but lower-authority context sources.
+    examples:
+      - broker notes
+      - trade publications
+      - academic papers
+  tier_4:
+    label: avoid
+    description: Generally unsuitable except for loose signal discovery that must be replaced with better evidence.
+    examples:
+      - forums
+      - SEO farms
+      - social media
+priority_order:
+  - tier_1
+  - tier_2
+  - tier_3
+  - tier_4
+search_guidance:
+  - Use the most primary source available for company facts, financials, and guidance.
+  - For every material search result, fetch the full page before extracting findings.
+  - Record contradictions explicitly when sources disagree.
+  - Treat missing data as informative, especially for thinly covered small-caps.

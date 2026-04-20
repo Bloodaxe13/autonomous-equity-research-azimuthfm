@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://azimuth.local/schemas/subagent_brief.schema.json",
+  "title": "SubagentBrief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "facet",
+    "ticker",
+    "objective",
+    "required_fields",
+    "source_guidance",
+    "task_boundaries",
+    "research_budget_hint",
+    "time_bounds"
+  ],
+  "properties": {
+    "facet": {
+      "type": "string",
+      "enum": [
+        "business_model",
+        "industry_competitive",
+        "historical_financials",
+        "forecasts_consensus",
+        "news_catalysts",
+        "peers_ownership",
+        "governance_management",
+        "resources_reserves",
+        "trial_pipeline",
+        "contract_book",
+        "nav_drivers"
+      ]
+    },
+    "ticker": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "required_fields": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source_guidance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_boundaries": {
+      "type": "string",
+      "minLength": 1
+    },
+    "research_budget_hint": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "time_bounds": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_from_prior_waves": {
+      "type": "string"
+    }
+  }
+}

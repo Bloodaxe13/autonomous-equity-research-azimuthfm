@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://azimuth.local/schemas/final_report.schema.json",
+  "title": "FinalReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ticker",
+    "tier",
+    "generated_at",
+    "version",
+    "header_block",
+    "sections",
+    "computation_log",
+    "findings_index",
+    "rating",
+    "price_target_aud",
+    "implied_return_pct"
+  ],
+  "properties": {
+    "ticker": {"type": "string", "minLength": 1},
+    "tier": {"type": "string", "enum": ["initiation", "quarterly", "flash"]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "version": {"type": "string", "minLength": 1},
+    "header_block": {
+      "type": "object",
+      "description": "Machine-generated section 0 payload containing rating, target, market data, and headline valuation outputs."
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "investment_thesis",
+        "business_description",
+        "industry_competitive",
+        "financial_analysis",
+        "forecasts",
+        "valuation",
+        "catalysts",
+        "risks",
+        "esg_governance",
+        "appendix"
+      ],
+      "properties": {
+        "investment_thesis": {"type": "string"},
+        "business_description": {"type": "string"},
+        "industry_competitive": {"type": "string"},
+        "financial_analysis": {"type": "string"},
+        "forecasts": {"type": "string"},
+        "valuation": {"type": "string"},
+        "catalysts": {"type": "string"},
+        "risks": {"type": "string"},
+        "esg_governance": {"type": "string"},
+        "appendix": {"type": "string"}
+      }
+    },
+    "computation_log": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "findings_index": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "rating": {"type": "string", "enum": ["Buy", "Hold", "Sell"]},
+    "price_target_aud": {"type": "number"},
+    "implied_return_pct": {"type": "number"}
+  }
+}

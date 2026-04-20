@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "azimuth-equity-research-azimuthfm"
+version = "0.1.0"
+description = "Autonomous Equity Research AZIMUTHFM"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.10",
+  "pyyaml>=6.0",
+  "fastapi>=0.115",
+  "openai>=1.109.1",
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "scipy>=1.13",
+  "numpy-financial>=1.0.0",
+  "yfinance>=0.2.54",
+  "matplotlib>=3.9",
+  "httpx>=0.28",
+  "pytest>=8.4"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

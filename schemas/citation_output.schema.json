@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://azimuth.local/schemas/citation_output.schema.json",
+  "title": "CitationOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "annotated_report",
+    "source_list",
+    "computation_log",
+    "unsourced_claims"
+  ],
+  "properties": {
+    "annotated_report": {"type": "string", "minLength": 1},
+    "source_list": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n", "title", "url", "retrieval_date", "source_tier", "claim_refs"],
+        "properties": {
+          "n": {"type": "integer", "minimum": 1},
+          "title": {"type": "string", "minLength": 1},
+          "url": {"type": "string", "format": "uri"},
+          "retrieval_date": {"type": "string", "format": "date"},
+          "source_tier": {"type": "integer", "minimum": 1, "maximum": 4},
+          "claim_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "computation_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n", "what", "formula", "inputs", "output"],
+        "properties": {
+          "n": {"type": "integer", "minimum": 1},
+          "what": {"type": "string", "minLength": 1},
+          "formula": {"type": "string", "minLength": 1},
+          "inputs": {"type": "object"},
+          "output": {}
+        }
+      }
+    },
+    "unsourced_claims": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}
