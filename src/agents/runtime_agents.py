@@ -9,12 +9,14 @@ from src.contracts_runtime import (
     ChallengeItem,
     CitationOutput,
     CitationSource,
+    ComputationLogEntry,
     FinalReport,
+    FindingIndexItem,
     FindingItem,
     HeaderBlock,
     RedTeamVerdict,
     RedTeamVerdictType,
-    ReportPacket,
+    ReportSections,
     SubagentBrief,
     SubagentFindings,
     TaskInput,
@@ -120,81 +122,138 @@ class LeadAnalystRunner:
         flat_findings = [item for packet in findings for item in packet.findings]
         calc = self.code_execution(
             """
-price = 12.53
+spot_price = 12.53
 base_target = 14.80
-upside = round((base_target / price - 1) * 100, 2)
+implied_return_pct = round((base_target / spot_price - 1) * 100, 2)
+market_cap_aud_m = 756.2
+net_cash_aud_m = 160.0
 RESULT = {
-    'last_close_aud': price,
+    'current_price_aud': spot_price,
     'price_target_aud': base_target,
-    'implied_return_pct': upside,
-    'market_cap_aud_m': 756.2,
+    'implied_return_pct': implied_return_pct,
+    'market_cap_aud_m': market_cap_aud_m,
+    'net_cash_aud_m': net_cash_aud_m,
 }
 """
         )
         if not calc.ok:
             raise RuntimeError(calc.stderr)
         metrics = calc.result
-        sections = self._build_sections(findings)
+        sections = self._build_sections(findings, metrics)
         rating = "Buy" if metrics["implied_return_pct"] >= 15 else "Hold"
+        generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         header = HeaderBlock(
             ticker=task.ticker,
             company_name="Clinuvel Pharmaceuticals",
+            report_title="Azimuth Equity Research — Clinuvel Pharmaceuticals",
+            report_date=str(date.today()),
+            report_type=task.tier,
             rating=rating,
             price_target_aud=metrics["price_target_aud"],
+            current_price_aud=metrics["current_price_aud"],
             implied_return_pct=metrics["implied_return_pct"],
-            last_close_aud=metrics["last_close_aud"],
             market_cap_aud_m=metrics["market_cap_aud_m"],
-            generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            net_cash_aud_m=metrics["net_cash_aud_m"],
+            primary_valuation_method="Deterministic MVP base-case target calibration",
+            valuation_summary=(
+                f"Target A${metrics['price_target_aud']:.2f} versus current A${metrics['current_price_aud']:.2f} "
+                f"for implied return of {metrics['implied_return_pct']:.2f}%."
+            ),
+            generated_at=generated_at,
         )
         findings_index = [
-            {
-                "facet": packet.facet,
-                "claim": item.claim,
-                "source_url": item.source_url,
-                "source_title": item.source_title,
-            }
+            FindingIndexItem(
+                facet=packet.facet,
+                claim=item.claim,
+                source_url=item.source_url,
+                source_title=item.source_title,
+                source_tier=item.source_tier,
+                confidence=item.confidence,
+            )
             for packet in findings
             for item in packet.findings
+        ]
+        computation_log = [
+            ComputationLogEntry(
+                n=1,
+                what="Illustrative MVP price target and upside",
+                formula="target_upside = (target_price / spot_price - 1) * 100",
+                inputs={"spot_price": metrics["current_price_aud"], "target_price": metrics["price_target_aud"]},
+                output=metrics,
+            )
         ]
         return FinalReport(
             ticker=task.ticker,
             tier=task.tier,
-            generated_at=header.generated_at,
+            generated_at=generated_at,
             header_block=header,
             sections=sections,
-            computation_log=[
-                {
-                    "n": 1,
-                    "what": "Illustrative MVP price target and upside",
-                    "formula": "target_upside = (target_price / spot_price - 1) * 100",
-                    "inputs": {"spot_price": metrics["last_close_aud"], "target_price": metrics["price_target_aud"]},
-                    "output": metrics,
-                }
-            ],
+            computation_log=computation_log,
             findings_index=findings_index,
             rating=rating,
             price_target_aud=metrics["price_target_aud"],
             implied_return_pct=metrics["implied_return_pct"],
         )
 
-    def _build_sections(self, findings: list[SubagentFindings]) -> dict[str, str]:
+    def _build_sections(self, findings: list[SubagentFindings], metrics: dict[str, float]) -> ReportSections:
         by_facet = {packet.facet: packet for packet in findings}
-        thesis = (
-            "CUV appears positioned for continued specialty-pharma execution, with SCENESSE anchoring current economics and pipeline/regulatory expansion driving optionality. "
-            "The MVP view remains preliminary and should be upgraded to live-web evidence before investment use."
-        )
-        return OrderedDict(
-            investment_thesis=thesis,
+        ordered = OrderedDict(
+            investment_thesis=(
+                "CUV appears positioned for continued specialty-pharma execution, with SCENESSE anchoring current economics and "
+                "pipeline/regulatory expansion driving optionality. The thesis is provisional because this runtime remains a deterministic "
+                "MVP packet rather than a live production research build."
+            ),
             business_description=self._markdown_from_packet(by_facet.get("business_model"), "Business description"),
             industry_competitive=self._markdown_from_packet(by_facet.get("industry_competitive"), "Industry and competitive position"),
             financial_analysis=self._markdown_from_packet(by_facet.get("historical_financials"), "Financial analysis"),
-            forecasts="Forecast framework pending live-model integration; current MVP uses deterministic placeholders for CUV-only testing.",
-            valuation="Valuation currently uses deterministic code_execution inputs to prove orchestration wiring, not a full live DCF/comps stack.",
+            forecasts=(
+                "Forecast framework remains placeholder-driven in MVP mode. Near-term thinking centers on SCENESSE durability, "
+                "expansion optionality, and balance-sheet support for internal development."
+            ),
+            valuation=(
+                f"Primary valuation anchor is a deterministic MVP base-case target of A${metrics['price_target_aud']:.2f} versus current "
+                f"price A${metrics['current_price_aud']:.2f}, implying {metrics['implied_return_pct']:.2f}% upside. A full production build "
+                "still needs live DCF, reverse-DCF, peer-multiple, sensitivity, and scenario-weighted outputs."
+            ),
             catalysts=self._markdown_from_packet(by_facet.get("news_catalysts"), "Catalysts"),
-            risks="Key risks include concentration in a lead product, regulatory delays, reimbursement constraints, and pipeline execution uncertainty.",
+            risks=(
+                "Key risks include concentration in a lead product, regulatory delays, reimbursement constraints, pipeline execution risk, "
+                "and the possibility that current deterministic target calibration overstates fair value in absence of a full live model."
+            ),
             esg_governance=self._markdown_from_packet(by_facet.get("peers_ownership"), "ESG and governance"),
-            appendix="MVP appendix: findings were assembled from stubbed search/fetch wrappers scoped to CUV test fixtures.",
+            appendix=self._build_appendix(findings),
         )
+        return ReportSections(**ordered)
+
+    def _build_appendix(self, findings: list[SubagentFindings]) -> str:
+        sources_reviewed = []
+        for packet in findings:
+            for item in packet.findings:
+                sources_reviewed.append(f"- [{packet.facet}] {item.source_title} ({item.source_url})")
+        items_not_found = [
+            f"- [{packet.facet}] {missing_item}"
+            for packet in findings
+            for missing_item in packet.not_found
+        ]
+        if not items_not_found:
+            items_not_found = ["- None in the deterministic fixture run."]
+        computation_notes = [
+            "- Price target and implied return were produced via code execution, not free-text inference.",
+            "- Current runtime does not yet include live DCF/comps/reverse-DCF stacks; valuation remains an orchestration-proof placeholder.",
+        ]
+        appendix_lines = [
+            "Appendix",
+            "",
+            "Sources reviewed",
+            *sources_reviewed,
+            "",
+            "Items not found",
+            *items_not_found,
+            "",
+            "Computation notes",
+            *computation_notes,
+        ]
+        return "\n".join(appendix_lines)
 
     @staticmethod
     def _markdown_from_packet(packet: SubagentFindings | None, heading: str) -> str:
@@ -236,6 +295,19 @@ class RedTeamRunner:
 
 
 class CitationRunner:
+    SECTION_HEADINGS = [
+        ("investment_thesis", "Section 1 — Investment Thesis"),
+        ("business_description", "Section 2 — Business Description"),
+        ("industry_competitive", "Section 3 — Industry and Competitive Position"),
+        ("financial_analysis", "Section 4 — Financial Analysis"),
+        ("forecasts", "Section 5 — Forecasts"),
+        ("valuation", "Section 6 — Valuation"),
+        ("catalysts", "Section 7 — Catalysts"),
+        ("risks", "Section 8 — Risks"),
+        ("esg_governance", "Section 9 — ESG and Governance"),
+        ("appendix", "Section 10 — Appendix"),
+    ]
+
     def annotate(self, report: FinalReport, findings: list[SubagentFindings]) -> CitationOutput:
         sources: list[CitationSource] = []
         source_index: dict[str, int] = {}
@@ -258,14 +330,36 @@ class CitationRunner:
         for source in sources:
             source.claim_refs = claim_map.get(source.url, [])
 
-        lines = [f"# {report.ticker} report", ""]
-        for section_name, content in report.sections.items():
-            lines.append(f"## {section_name}")
-            lines.append(content)
+        lines = [
+            f"# {report.header_block.report_title}",
+            "",
+            "## Section 0 — Header Block",
+            f"- Ticker: {report.header_block.ticker}",
+            f"- Company: {report.header_block.company_name}",
+            f"- Report date: {report.header_block.report_date}",
+            f"- Report type: {report.header_block.report_type.value}",
+            f"- Rating: {report.header_block.rating}",
+            f"- Current price (A$): {report.header_block.current_price_aud:.2f}",
+            f"- Price target (A$): {report.header_block.price_target_aud:.2f}",
+            f"- Implied return (%): {report.header_block.implied_return_pct:.2f}",
+            f"- Market cap (A$m): {report.header_block.market_cap_aud_m:.1f}" if report.header_block.market_cap_aud_m is not None else "- Market cap (A$m): n/a",
+            f"- Net cash (A$m): {report.header_block.net_cash_aud_m:.1f}" if report.header_block.net_cash_aud_m is not None else "- Net cash (A$m): n/a",
+            f"- Primary valuation method: {report.header_block.primary_valuation_method}",
+            f"- Valuation summary: {report.header_block.valuation_summary}",
+            "",
+        ]
+        section_payload = report.sections.model_dump()
+        for section_name, heading in self.SECTION_HEADINGS:
+            lines.append(f"## {heading}")
+            lines.append(section_payload[section_name])
             lines.append("")
         lines.append("## Sources")
         for source in sources:
-            lines.append(f"[^${source.n}]: {source.title} ({source.url})")
+            lines.append(f"[^{source.n}]: {source.title} ({source.url})")
+        lines.append("")
+        lines.append("## Computation log")
+        for entry in report.computation_log:
+            lines.append(f"- [{entry.n}] {entry.what}: {entry.formula}")
         return CitationOutput(
             annotated_report="\n".join(lines),
             source_list=sources,

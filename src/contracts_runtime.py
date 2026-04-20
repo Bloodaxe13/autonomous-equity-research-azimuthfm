@@ -5,7 +5,21 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+SECTION_ORDER = [
+    "investment_thesis",
+    "business_description",
+    "industry_competitive",
+    "financial_analysis",
+    "forecasts",
+    "valuation",
+    "catalysts",
+    "risks",
+    "esg_governance",
+    "appendix",
+]
 
 
 class ReportTier(str, Enum):
@@ -108,12 +122,57 @@ class SubagentFindings(BaseModel):
 class HeaderBlock(BaseModel):
     ticker: str
     company_name: str
+    report_title: str
+    report_date: str
+    report_type: ReportTier
     rating: Literal["Buy", "Hold", "Sell"]
     price_target_aud: float
+    current_price_aud: float
     implied_return_pct: float
-    last_close_aud: Optional[float] = None
     market_cap_aud_m: Optional[float] = None
+    net_cash_aud_m: Optional[float] = None
+    primary_valuation_method: str
+    valuation_summary: str
     generated_at: str
+
+
+class ReportSections(BaseModel):
+    investment_thesis: str
+    business_description: str
+    industry_competitive: str
+    financial_analysis: str
+    forecasts: str
+    valuation: str
+    catalysts: str
+    risks: str
+    esg_governance: str
+    appendix: str
+
+    @model_validator(mode="after")
+    def appendix_must_contain_required_subsections(self) -> "ReportSections":
+        appendix = self.appendix
+        required_labels = ["Sources reviewed", "Items not found", "Computation notes"]
+        missing = [label for label in required_labels if label not in appendix]
+        if missing:
+            raise ValueError(f"appendix missing required subsections: {', '.join(missing)}")
+        return self
+
+
+class ComputationLogEntry(BaseModel):
+    n: int
+    what: str
+    formula: str
+    inputs: Dict[str, Any] = Field(default_factory=dict)
+    output: Any = None
+
+
+class FindingIndexItem(BaseModel):
+    facet: str
+    claim: str
+    source_url: str
+    source_title: str
+    source_tier: int
+    confidence: FindingConfidence
 
 
 class FinalReport(BaseModel):
@@ -122,12 +181,37 @@ class FinalReport(BaseModel):
     generated_at: str
     version: str = "0.1.0"
     header_block: HeaderBlock
-    sections: Dict[str, str]
-    computation_log: List[Dict[str, Any]] = Field(default_factory=list)
-    findings_index: List[Dict[str, Any]] = Field(default_factory=list)
+    sections: ReportSections
+    computation_log: List[ComputationLogEntry] = Field(default_factory=list)
+    findings_index: List[FindingIndexItem] = Field(default_factory=list)
     rating: Literal["Buy", "Hold", "Sell"]
     price_target_aud: float
     implied_return_pct: float
+
+    @model_validator(mode="after")
+    def enforce_consistency(self) -> "FinalReport":
+        if self.header_block.ticker != self.ticker:
+            raise ValueError("header_block.ticker must match report ticker")
+        if self.header_block.report_type != self.tier:
+            raise ValueError("header_block.report_type must match report tier")
+        if self.header_block.rating != self.rating:
+            raise ValueError("header_block.rating must match report rating")
+        if round(self.header_block.price_target_aud, 4) != round(self.price_target_aud, 4):
+            raise ValueError("header_block.price_target_aud must match report price_target_aud")
+        if round(self.header_block.implied_return_pct, 4) != round(self.implied_return_pct, 4):
+            raise ValueError("header_block.implied_return_pct must match report implied_return_pct")
+        if round(self.header_block.current_price_aud, 4) <= 0:
+            raise ValueError("header_block.current_price_aud must be positive")
+        if self.tier == ReportTier.INITIATION and not self.findings_index:
+            raise ValueError("initiation reports must include a findings_index")
+        expected_sequence = list(range(1, len(self.computation_log) + 1))
+        actual_sequence = [entry.n for entry in self.computation_log]
+        if actual_sequence != expected_sequence:
+            raise ValueError("computation_log entries must have contiguous n values starting at 1")
+        section_keys = list(self.sections.model_dump().keys())
+        if section_keys != SECTION_ORDER:
+            raise ValueError("report sections must follow the canonical 10-section order")
+        return self
 
 
 class ChallengeItem(BaseModel):
@@ -161,7 +245,7 @@ class CitationSource(BaseModel):
 class CitationOutput(BaseModel):
     annotated_report: str
     source_list: List[CitationSource] = Field(default_factory=list)
-    computation_log: List[Dict[str, Any]] = Field(default_factory=list)
+    computation_log: List[ComputationLogEntry] = Field(default_factory=list)
     unsourced_claims: List[str] = Field(default_factory=list)
 
 

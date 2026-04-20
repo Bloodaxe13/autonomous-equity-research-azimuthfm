@@ -47,11 +47,13 @@ class AzimuthOrchestrator:
         findings = self.dispatcher.dispatch_many(briefs)
         self.memory_store.write(task.run_id, "findings_wave_1", [packet.model_dump(mode="json") for packet in findings])
         self.memory_store.write(task.run_id, "findings_index", [item.model_dump(mode="json") for packet in findings for item in packet.findings])
+        self.memory_store.append_event(task.run_id, "checkpoints", {"stage": "after_findings_wave_1", "packets": len(findings)})
         self.tracer.log("subagent_completed", run_id=task.run_id, packets=len(findings))
 
         report = self.lead.synthesize(task, findings)
         self.memory_store.write(task.run_id, "computation_log", report.computation_log)
         self.memory_store.write(task.run_id, "draft_report", report.model_dump(mode="json"))
+        self.memory_store.append_event(task.run_id, "checkpoints", {"stage": "before_red_team", "rating": report.rating, "price_target_aud": report.price_target_aud})
         self.tracer.log("report_synthesized", run_id=task.run_id, rating=report.rating, price_target=report.price_target_aud)
 
         red_team = self.red_team.review(report)
@@ -60,6 +62,7 @@ class AzimuthOrchestrator:
 
         citation = self.citation.annotate(report, findings)
         self.memory_store.write(task.run_id, "citation", citation.model_dump(mode="json"))
+        self.memory_store.append_event(task.run_id, "checkpoints", {"stage": "finalized", "sources": len(citation.source_list)})
         self.tracer.log("citation_completed", run_id=task.run_id, sources=len(citation.source_list))
 
         packet = ReportPacket(

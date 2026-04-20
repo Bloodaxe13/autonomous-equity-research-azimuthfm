@@ -24,7 +24,37 @@
     "version": {"type": "string", "minLength": 1},
     "header_block": {
       "type": "object",
-      "description": "Machine-generated section 0 payload containing rating, target, market data, and headline valuation outputs."
+      "additionalProperties": false,
+      "required": [
+        "ticker",
+        "company_name",
+        "report_title",
+        "report_date",
+        "report_type",
+        "rating",
+        "price_target_aud",
+        "current_price_aud",
+        "implied_return_pct",
+        "primary_valuation_method",
+        "valuation_summary",
+        "generated_at"
+      ],
+      "properties": {
+        "ticker": {"type": "string", "minLength": 1},
+        "company_name": {"type": "string", "minLength": 1},
+        "report_title": {"type": "string", "minLength": 1},
+        "report_date": {"type": "string", "format": "date"},
+        "report_type": {"type": "string", "enum": ["initiation", "quarterly", "flash"]},
+        "rating": {"type": "string", "enum": ["Buy", "Hold", "Sell"]},
+        "price_target_aud": {"type": "number"},
+        "current_price_aud": {"type": "number", "exclusiveMinimum": 0},
+        "implied_return_pct": {"type": "number"},
+        "market_cap_aud_m": {"type": ["number", "null"]},
+        "net_cash_aud_m": {"type": ["number", "null"]},
+        "primary_valuation_method": {"type": "string", "minLength": 1},
+        "valuation_summary": {"type": "string", "minLength": 1},
+        "generated_at": {"type": "string", "format": "date-time"}
+      }
     },
     "sections": {
       "type": "object",
@@ -51,19 +81,45 @@
         "catalysts": {"type": "string"},
         "risks": {"type": "string"},
         "esg_governance": {"type": "string"},
-        "appendix": {"type": "string"}
+        "appendix": {
+          "type": "string",
+          "allOf": [
+            {"pattern": "Sources reviewed"},
+            {"pattern": "Items not found"},
+            {"pattern": "Computation notes"}
+          ]
+        }
       }
     },
     "computation_log": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n", "what", "formula", "inputs", "output"],
+        "properties": {
+          "n": {"type": "integer", "minimum": 1},
+          "what": {"type": "string", "minLength": 1},
+          "formula": {"type": "string", "minLength": 1},
+          "inputs": {"type": "object"},
+          "output": {}
+        }
       }
     },
     "findings_index": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["facet", "claim", "source_url", "source_title", "source_tier", "confidence"],
+        "properties": {
+          "facet": {"type": "string", "minLength": 1},
+          "claim": {"type": "string", "minLength": 1},
+          "source_url": {"type": "string", "minLength": 1},
+          "source_title": {"type": "string", "minLength": 1},
+          "source_tier": {"type": "integer", "minimum": 1, "maximum": 4},
+          "confidence": {"type": "string", "enum": ["high", "medium", "low"]}
+        }
       }
     },
     "rating": {"type": "string", "enum": ["Buy", "Hold", "Sell"]},

@@ -40,7 +40,12 @@ Last updated: 2026-04-20 17:28 AEST
   - lead/red-team/citation/subagent runtime classes
   - orchestrator
   - CUV-only entrypoint
-- Added tests for calculations and MVP runtime.
+- Implemented generic OpenAI Responses-based prompt runtime in:
+  - `src/responses_agent_runtime.py`
+  - `src/live_autonomous_runtime.py`
+- Added payload normalization and tool-output truncation so live runs can survive imperfect model JSON and large fetched pages.
+- Achieved a successful live OpenAI subagent smoke test on CUV business-model research.
+- Added tests for calculations, MVP runtime, Responses loop, live runtime, payload normalization, and tool output limits.
 
 ## Verification completed
 
@@ -50,8 +55,9 @@ Commands run:
 - `python3 -m src.cuv_runtime_entrypoint`
 
 Results:
-- `11 passed`
+- `22 passed`
 - CUV-only MVP packet generated successfully
+- Live OpenAI subagent smoke test on CUV business-model facet completed successfully
 
 ## Current artifact output
 

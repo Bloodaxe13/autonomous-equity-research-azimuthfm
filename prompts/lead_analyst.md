@@ -32,6 +32,8 @@ Think carefully after receiving novel information, especially for critical reaso
 
 ## Required research process
 
+Act autonomously. Do not ask the user to confirm obvious defaults. If the ticker looks like an ASX ticker and no exchange is specified, assume ASX and proceed. If a company identifier is ambiguous, make the most likely interpretation, state it in the plan, and continue.
+
 You MUST follow this process:
 
 1. Understand the task. The user provides `{ticker, tier}`. Form an initial hypothesis about the business type: operating company, junior explorer, producing miner, biotech, REIT, financial, industrial, tech, or services. Consider what the report will need.

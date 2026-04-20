@@ -22,7 +22,7 @@ class JsonMemoryStore:
     def _write(self, run_id: str, payload: dict[str, Any]) -> None:
         path = self._path(run_id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        path.write_text(json.dumps(_json_safe(payload), indent=2, ensure_ascii=False), encoding="utf-8")
 
     def write(self, run_id: str, key: str, value: Any) -> bool:
         payload = self._load(run_id)
@@ -42,3 +42,20 @@ class JsonMemoryStore:
 
     def snapshot(self, run_id: str) -> dict[str, Any]:
         return self._load(run_id)
+
+
+def _json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    if hasattr(value, "value") and not isinstance(value, (str, bytes)):
+        try:
+            return value.value
+        except Exception:
+            pass
+    return repr(value)
