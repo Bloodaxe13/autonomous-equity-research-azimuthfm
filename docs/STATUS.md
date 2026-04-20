@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-20 17:28 AEST
+Last updated: 2026-04-21 04:02 AEST
 
 ## Completed in this build pass
 
@@ -44,8 +44,19 @@ Last updated: 2026-04-20 17:28 AEST
   - `src/responses_agent_runtime.py`
   - `src/live_autonomous_runtime.py`
 - Added payload normalization and tool-output truncation so live runs can survive imperfect model JSON and large fetched pages.
+- Replaced the old lead-output coercion path with strict failure handling: invalid lead outputs now stop the pipeline, persist validation errors plus restart metadata, and preserve raw payloads for later resume/retrigger from the failed stage.
+- Added per-agent artifact logging under each run for:
+  - full raw API request/response payloads per turn (untruncated, for restartability)
+  - tool histories with arguments/results
+  - tool counts per agent
+  - agent start/end timestamps
+  - duration in ms
+  - parsed outputs per stage
+- Enabled parallel execution of independent tool calls (`run_subagent`, `web_search`, `web_fetch`, `code_execution`) when the model emits them in the same turn.
 - Achieved a successful live OpenAI subagent smoke test on CUV business-model research.
-- Added tests for calculations, MVP runtime, Responses loop, live runtime, payload normalization, and tool output limits.
+- Added tests for calculations, MVP runtime, Responses loop, live runtime, payload normalization, tool output limits, web-search annotation parsing, lead-output normalization, parallel tool execution, restartable failure handling, runtime web adapters, and structured-secondary loading.
+- Added bounded red-team reopen flow, fail-closed citation gating, raw failure artifact persistence, structured-secondary scaffolding, current-state retrieval prompt upgrades, and confident final-report voice constraints.
+- Completed live red-team stage-boundary replay on saved CUV artifacts using the calibrated red-team prompt, producing a citation-annotated report without rerunning upstream research.
 
 ## Verification completed
 
@@ -55,9 +66,11 @@ Commands run:
 - `python3 -m src.cuv_runtime_entrypoint`
 
 Results:
-- `22 passed`
+- targeted runtime verification suite: `35 passed`
+- `py_compile` on touched runtime/test files passed
 - CUV-only MVP packet generated successfully
-- Live OpenAI subagent smoke test on CUV business-model facet completed successfully
+- live OpenAI subagent smoke test on CUV business-model facet completed successfully
+- live stage-boundary red-team replay completed successfully and produced `/tmp/azimuthfm-red-team-live-replay/annotated_report.md`
 
 ## Current artifact output
 
@@ -81,4 +94,4 @@ The repo is not yet at full exact spec fidelity. Missing pieces include:
 
 ## Current interpretation
 
-This is now a working verified MVP foundation for Autonomous Equity Research AZIMUTHFM, tested on CUV only, with the exact next step being replacement of deterministic runtime stubs with live prompt-driven agent execution.
+This is now a working verified runtime foundation for Autonomous Equity Research AZIMUTHFM with live prompt-driven stages, restartable failure surfaces, calibrated red-team replay, and current-state retrieval hardening. The next meaningful check is a full paid CUV run on the latest prompt/runtime stack.

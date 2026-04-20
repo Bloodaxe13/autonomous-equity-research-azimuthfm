@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +23,36 @@ except Exception:  # pragma: no cover - exercised via injected client in tests
 JSONDict = dict[str, Any]
 ToolHandler = Callable[[JSONDict, "AgentRunContext"], Any]
 MAX_TOOL_OUTPUT_CHARS = 12000
+
+
+class AgentLoopIncomplete(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        prompt_path: str = '',
+        final_text: str = '',
+        tool_history: list[JSONDict] | None = None,
+        turns: int = 0,
+        response_ids: list[str] | None = None,
+        raw_responses: list[JSONDict] | None = None,
+        started_at: str = '',
+        completed_at: str = '',
+        duration_ms: int = 0,
+    ):
+        super().__init__(message)
+        self.prompt_path = prompt_path
+        self.final_text = final_text
+        self.tool_history = tool_history or []
+        self.turns = turns
+        self.response_ids = response_ids or []
+        self.raw_responses = raw_responses or []
+        self.started_at = started_at
+        self.completed_at = completed_at
+        self.duration_ms = duration_ms
+
+
+PARALLEL_SAFE_TOOLS = {'run_subagent', 'web_search', 'web_fetch', 'code_execution'}
 
 
 class ResponsesClientProtocol(Protocol):
@@ -63,6 +95,11 @@ class AgentRunResult:
     completed_via_tool: str | None
     tool_history: list[JSONDict] = field(default_factory=list)
     response_ids: list[str] = field(default_factory=list)
+    raw_responses: list[JSONDict] = field(default_factory=list)
+    started_at: str = ''
+    completed_at: str = ''
+    duration_ms: int = 0
+    tool_counts: JSONDict = field(default_factory=dict)
 
 
 class ResponsesAgentLoop:
@@ -71,13 +108,15 @@ class ResponsesAgentLoop:
         *,
         client: ResponsesClientProtocol | None = None,
         tools: Mapping[str, AgentTool] | None = None,
-        default_model: str = "gpt-5",
+        default_model: str = "gpt-5.4",
         max_turns: int = 20,
+        max_output_tokens: int = 100000,
     ):
         self.client = client or self._build_default_client()
         self.tools = dict(tools or {})
         self.default_model = default_model
         self.max_turns = max_turns
+        self.max_output_tokens = max_output_tokens
 
     def run_prompt_file(
         self,
@@ -97,6 +136,7 @@ class ResponsesAgentLoop:
         context = AgentRunContext(prompt_path=prompt_file, run_id=run_id, metadata=dict(metadata or {}))
         selected_tools = self._select_tools(tool_names)
         response_ids: list[str] = []
+        raw_responses: list[JSONDict] = []
         tool_history: list[JSONDict] = []
         previous_response_id: str | None = None
         next_input: Any = self._normalize_input(user_input)
@@ -104,6 +144,7 @@ class ResponsesAgentLoop:
         final_output: Any = None
         final_text = ""
         completed_via_tool: str | None = None
+        started_at = datetime.now(timezone.utc)
 
         for turn in range(1, turn_limit + 1):
             request = {
@@ -111,6 +152,7 @@ class ResponsesAgentLoop:
                 "instructions": instructions,
                 "input": next_input,
                 "tools": [tool.as_openai_tool() for tool in selected_tools.values()],
+                "max_output_tokens": self.max_output_tokens,
             }
             if previous_response_id:
                 request["previous_response_id"] = previous_response_id
@@ -119,6 +161,11 @@ class ResponsesAgentLoop:
 
             response = self.client.responses.create(**request)
             payload = self._response_payload(response)
+            raw_responses.append({
+                "turn": turn,
+                "request": request,
+                "response": payload,
+            })
             response_id = payload.get("id") or getattr(response, "id", None)
             if response_id:
                 response_ids.append(str(response_id))
@@ -131,23 +178,25 @@ class ResponsesAgentLoop:
                 break
 
             tool_outputs: list[JSONDict] = []
-            for call in function_calls:
-                name = call["name"]
-                arguments = self._parse_json_arguments(call.get("arguments"))
-                if name not in selected_tools:
-                    raise KeyError(f"Tool '{name}' was requested by the model but is not registered")
-                result = selected_tools[name].handler(arguments, context)
-                history_item = {
-                    "turn": turn,
-                    "tool": name,
-                    "call_id": call.get("call_id"),
-                    "arguments": arguments,
-                    "result": result,
-                }
-                tool_history.append(history_item)
-                if name == "complete_task":
-                    final_output = result
-                    completed_via_tool = name
+            if self._can_parallelize(function_calls):
+                with ThreadPoolExecutor(max_workers=min(len(function_calls), 8)) as executor:
+                    futures = [
+                        executor.submit(self._execute_tool_call, call, selected_tools, context, turn)
+                        for call in function_calls
+                    ]
+                    execution_results = [future.result() for future in futures]
+            else:
+                execution_results = [
+                    self._execute_tool_call(call, selected_tools, context, turn)
+                    for call in function_calls
+                ]
+
+            for item in execution_results:
+                tool_history.append(item["history_item"])
+                if item["name"] == "complete_task":
+                    final_output = item["result"]
+                    completed_via_tool = item["name"]
+                    finished_at = datetime.now(timezone.utc)
                     return AgentRunResult(
                         prompt_path=str(prompt_file),
                         instructions=instructions,
@@ -157,18 +206,36 @@ class ResponsesAgentLoop:
                         completed_via_tool=completed_via_tool,
                         tool_history=tool_history,
                         response_ids=response_ids,
+                        raw_responses=raw_responses,
+                        started_at=started_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+                        completed_at=finished_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+                        duration_ms=int((finished_at - started_at).total_seconds() * 1000),
+                        tool_counts=_tool_counts(tool_history),
                     )
                 tool_outputs.append(
                     {
                         "type": "function_call_output",
-                        "call_id": call.get("call_id"),
-                        "output": self._serialize_tool_output(result),
+                        "call_id": item["call_id"],
+                        "output": self._serialize_tool_output(item["result"]),
                     }
                 )
             next_input = tool_outputs
         else:
-            raise RuntimeError(f"Agent loop exceeded max_turns={turn_limit} without completion")
+            finished_at = datetime.now(timezone.utc)
+            raise AgentLoopIncomplete(
+                f"Agent loop exceeded max_turns={turn_limit} without completion",
+                prompt_path=str(prompt_file),
+                final_text=final_text,
+                tool_history=tool_history,
+                turns=turn_limit,
+                response_ids=response_ids,
+                raw_responses=raw_responses,
+                started_at=started_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+                completed_at=finished_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+                duration_ms=int((finished_at - started_at).total_seconds() * 1000),
+            )
 
+        finished_at = datetime.now(timezone.utc)
         return AgentRunResult(
             prompt_path=str(prompt_file),
             instructions=instructions,
@@ -178,6 +245,11 @@ class ResponsesAgentLoop:
             completed_via_tool=completed_via_tool,
             tool_history=tool_history,
             response_ids=response_ids,
+            raw_responses=raw_responses,
+            started_at=started_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            completed_at=finished_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            duration_ms=int((finished_at - started_at).total_seconds() * 1000),
+            tool_counts=_tool_counts(tool_history),
         )
 
     def _select_tools(self, tool_names: list[str] | None) -> dict[str, AgentTool]:
@@ -255,6 +327,48 @@ class ResponsesAgentLoop:
                 )
         return calls
 
+    def _can_parallelize(self, function_calls: list[JSONDict]) -> bool:
+        if len(function_calls) <= 1:
+            return False
+        names = [call.get("name") for call in function_calls]
+        if any(name == "complete_task" for name in names):
+            return False
+        return all(name in PARALLEL_SAFE_TOOLS for name in names)
+
+    def _execute_tool_call(
+        self,
+        call: JSONDict,
+        selected_tools: Mapping[str, AgentTool],
+        context: AgentRunContext,
+        turn: int,
+    ) -> JSONDict:
+        name = call["name"]
+        arguments = self._parse_json_arguments(call.get("arguments"))
+        if name not in selected_tools:
+            raise KeyError(f"Tool '{name}' was requested by the model but is not registered")
+        try:
+            result = selected_tools[name].handler(arguments, context)
+        except Exception as exc:
+            result = {
+                "ok": False,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+                "tool": name,
+            }
+        history_item = {
+            "turn": turn,
+            "tool": name,
+            "call_id": call.get("call_id"),
+            "arguments": arguments,
+            "result": result,
+        }
+        return {
+            "name": name,
+            "call_id": call.get("call_id"),
+            "result": result,
+            "history_item": history_item,
+        }
+
     @staticmethod
     def _build_default_client() -> ResponsesClientProtocol:
         if OpenAI is None:
@@ -318,9 +432,37 @@ def build_default_agent_tools(
         if subagent_runner is None:
             raise RuntimeError("run_subagent tool requested but no subagent_runner was configured")
         brief = _first_present(arguments, "brief", "brief_json", "task", default=arguments)
+        if isinstance(brief, str):
+            brief = _coerce_subagent_brief_string(brief)
         if not isinstance(brief, dict):
             raise TypeError("run_subagent expects a JSON object brief")
         return subagent_runner(brief, context)
+
+    def _coerce_subagent_brief_string(raw: str) -> JSONDict:
+        text = (raw or '').strip()
+        if not text:
+            raise TypeError("run_subagent string brief was empty")
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            candidate = match.group(0)
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                try:
+                    parsed = ast.literal_eval(candidate)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except Exception:
+                    pass
+        raise TypeError("run_subagent string brief was not valid JSON")
 
     any_schema = {}
     return {
@@ -416,8 +558,9 @@ def build_default_prompt_executor(
     code_execution: CodeExecutionTool | None = None,
     subagent_runner: Callable[[JSONDict, AgentRunContext], Any] | None = None,
     client: ResponsesClientProtocol | None = None,
-    default_model: str = "gpt-5",
+    default_model: str = "gpt-5.4",
     max_turns: int = 20,
+    max_output_tokens: int = 100000,
 ) -> ResponsesAgentLoop:
     return ResponsesAgentLoop(
         client=client,
@@ -430,6 +573,7 @@ def build_default_prompt_executor(
         ),
         default_model=default_model,
         max_turns=max_turns,
+        max_output_tokens=max_output_tokens,
     )
 
 
@@ -460,3 +604,11 @@ def _truncate_for_model(value: Any, *, max_chars: int) -> Any:
     if isinstance(value, list):
         return [_truncate_for_model(v, max_chars=max_chars) for v in value]
     return value
+
+
+def _tool_counts(tool_history: list[JSONDict]) -> JSONDict:
+    counts: dict[str, int] = {}
+    for item in tool_history:
+        name = str(item.get('tool'))
+        counts[name] = counts.get(name, 0) + 1
+    return counts

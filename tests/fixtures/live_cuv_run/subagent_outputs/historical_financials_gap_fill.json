@@ -1,0 +1,160 @@
+{
+  "facet": "historical_financials_gap_fill",
+  "ticker": "CUV",
+  "completed_at": "2026-04-20T00:00:00Z",
+  "tool_calls_used": 7,
+  "findings": [
+    {
+      "claim": "FY2025 revenue, EBIT, NPAT, operating cash flow, cash, and dividend per share from CLINUVEL's FY2025 financial summary/annual report",
+      "data": {
+        "fy": "2025",
+        "revenue_aud_m": 105.3,
+        "ebit_aud_m": 52.0,
+        "npat_aud_m": 36.2,
+        "operating_cash_flow_aud_m": 41.1,
+        "cash_and_equivalents_aud_m": null,
+        "debt_aud_m": null,
+        "dividend_per_share_aud": null
+      },
+      "source_url": "https://www.clinuvel.com/investor/financial-summary/",
+      "source_tier": 1,
+      "source_title": "Financial Summary - CLINUVEL",
+      "source_date": "2025-08-28",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Headline FY2025 figures are from company financial summary/search snippet; page itself is official investor IR. Exact balance-sheet items were not captured in the fetch text."
+    },
+    {
+      "claim": "FY2024 revenue, EBIT margin, NPAT, and operating cash flow from CLINUVEL's FY2024 financial summary",
+      "data": {
+        "fy": "2024",
+        "revenue_aud_m": 95.3,
+        "ebit_margin_pct": 57,
+        "ebit_aud_m_est": 54.3,
+        "npat_aud_m": 35.6,
+        "operating_cash_flow_aud_m": 37.1,
+        "cash_and_equivalents_aud_m": null,
+        "debt_aud_m": null,
+        "dividend_per_share_aud": null
+      },
+      "source_url": "https://www.clinuvel.com/investor/financial-summary/",
+      "source_tier": 1,
+      "source_title": "Financial Summary - CLINUVEL",
+      "source_date": "2024-08-29",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "EBIT is estimated from the disclosed 57% margin and revenue. Official summary appears to present margin rather than absolute EBIT in the snippet."
+    },
+    {
+      "claim": "FY2023 revenue and cash flow from the annual report/results, plus NPAT and total revenue/other income",
+      "data": {
+        "fy": "2023",
+        "revenue_aud_m": 96.3,
+        "total_revenue_and_other_income_aud_m": 83.0,
+        "npat_aud_m": 30.6,
+        "operating_cash_flow_aud_m": 36.9,
+        "cash_and_equivalents_aud_m": 156.8,
+        "debt_aud_m": null,
+        "dividend_per_share_aud": null
+      },
+      "source_url": "https://annualreport.clinuvel.com/wp-content/uploads/2023/08/app4e2023-financials.pdf",
+      "source_tier": 1,
+      "source_title": "FY2023 Appendix 4E / financials",
+      "source_date": "2023-08-30",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Search snippet indicates revenues and other income of A$83.0m and NPAT A$30.6m. The 'revenue' field in snippets is also shown as A$96.3m in an annual report result, so there is a presentation difference between revenue and revenue+other income."
+    },
+    {
+      "claim": "FY2022 revenue, EBIT/PBIT, NPAT, operating cash flow, cash, dividend, and shares on issue from CLINUVEL's FY2022 results release",
+      "data": {
+        "fy": "2022",
+        "revenue_aud_m": 66.987,
+        "ebit_aud_m": 34.321,
+        "npat_aud_m": 20.876,
+        "operating_cash_flow_aud_m": 39.872,
+        "cash_and_equivalents_aud_m": 121.509,
+        "debt_aud_m": null,
+        "dividend_per_share_aud": 0.04,
+        "shares_on_issue": 49410338
+      },
+      "source_url": "https://www.clinuvel.com/2022/08/revenue-growth-drives-clinuvels-sixth-consecutive-annual-profit-20220830/",
+      "source_tier": 1,
+      "source_title": "Revenue Growth Drives CLINUVEL's Sixth Consecutive Annual Profit - CLINUVEL",
+      "source_date": "2022-08-30",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Official results release snippet provides the requested metrics directly. Dividend is fully franked per the release snippet."
+    },
+    {
+      "claim": "FY2021 revenue, operating cash flow, and cash balance from CLINUVEL's FY2021 annual report/results",
+      "data": {
+        "fy": "2021",
+        "revenue_aud_m": 48.451,
+        "ebit_aud_m": 25.713,
+        "npat_aud_m": 24.7,
+        "operating_cash_flow_aud_m": 19.262,
+        "cash_and_equivalents_aud_m": 82.691,
+        "debt_aud_m": null,
+        "dividend_per_share_aud": 0.025
+      },
+      "source_url": "https://annualreport.clinuvel.com/wp-content/uploads/2021/10/clinuvel-annual-report-2021.pdf",
+      "source_tier": 1,
+      "source_title": "CLINUVEL Pharmaceuticals Annual Report 2021",
+      "source_date": "2021-10-07",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Search snippet contains revenue, EBIT/PBIT, NPAT, operating cash flow, cash, and dividend per share. FY2021 absolute EBIT/NPAT are presented in the snippet and company release."
+    },
+    {
+      "claim": "FY2024 and FY2023 geographic revenue mix is disclosed by primary geographical markets in the annual reports",
+      "data": {
+        "fy2024": {
+          "europe_usa_aud_m": 81.483,
+          "switzerland_others_aud_m": 6.695,
+          "total_revenue_aud_m": 88.178
+        },
+        "fy2023": {
+          "europe_usa_aud_m": 72.283,
+          "switzerland_others_aud_m": 6.038,
+          "total_revenue_aud_m": 78.321
+        }
+      },
+      "source_url": "https://annualreport.clinuvel.com/wp-content/uploads/2024/08/ar-2024-published-240829.pdf",
+      "source_tier": 1,
+      "source_title": "CLINUVEL Pharmaceuticals Annual Report 2024",
+      "source_date": "2024-08-29",
+      "retrieval_date": "2026-04-20",
+      "confidence": "medium",
+      "notes": "Geographic mix values were surfaced in official-report search snippets and should be treated as official but not fully re-verified from the PDF text extraction."
+    },
+    {
+      "claim": "CLINUVEL shares on issue are currently 50,123,630 per company snapshot",
+      "data": 50123630,
+      "source_url": "https://www.clinuvel.com/investor/company-snapshot/",
+      "source_tier": 1,
+      "source_title": "Company Snapshot - CLINUVEL",
+      "source_date": null,
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Current shares on issue from official investor snapshot; differs from FY2022 year-end shares on issue."
+    }
+  ],
+  "not_found": [
+    "A clean FY2020-FY2024 or FY2021-FY2025 five-year table with all metrics in a single official company table was not located in accessible text; metrics had to be assembled from multiple official annual reports/results releases.",
+    "FY2024 and FY2025 exact cash and debt/borrowings balances were not reliably extracted from the PDF text fetch.",
+    "FY2020 historical figures were not located, so the table is anchored on FY2021-FY2025.",
+    "A definitive year-by-year geographic revenue mix for FY2021-FY2022 and FY2025 was not located in accessible text."
+  ],
+  "contradictions": [
+    {
+      "topic": "FY2023 revenue presentation",
+      "source_a": "https://annualreport.clinuvel.com/wp-content/uploads/2023/08/ar23-full-final.pdf",
+      "source_a_claim": "Snippet shows revenue A$96.3 million.",
+      "source_b": "https://annualreport.clinuvel.com/wp-content/uploads/2023/08/app4e2023-financials.pdf",
+      "source_b_claim": "Snippet shows revenues and other income A$83.0 million.",
+      "notes": "Likely different definitions/presentations (revenue vs revenues plus other income). Use the same metric definition consistently when building the model."
+    }
+  ],
+  "summary": "I assembled a five-year set for CLINUVEL largely from official annual reports/results releases. FY2022 is the cleanest year for the requested operating metrics, while FY2024-FY2025 are mostly captured from the company financial summary and FY2023 has a presentation split between revenue and revenues+other income that should be normalized before direct comparison."
+}

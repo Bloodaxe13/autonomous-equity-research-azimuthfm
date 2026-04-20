@@ -1,0 +1,147 @@
+{
+  "facet": "peer_set_and_comps",
+  "ticker": "CUV",
+  "completed_at": "2026-04-20T00:00:00Z",
+  "tool_calls_used": 6,
+  "findings": [
+    {
+      "claim": "CLINUVEL is a commercial-stage rare-disease/specialty-pharma company whose revenue is primarily from SCENESSE® sales.",
+      "data": {
+        "revenue_aud_m": 105.3,
+        "fiscal_year": "FY2025",
+        "period_end": "2025-06-30",
+        "business_profile": "commercial-stage rare-disease company",
+        "product": "SCENESSE®"
+      },
+      "source_url": "https://www.clinuvel.com/wp-content/uploads/2025/08/20250828-clinuvel-delivers-ninth-consecutive-revenues-growth-profit.pdf?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "A S X A N N O U N C E M E N T",
+      "source_date": "2025-08-28",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Company release snippet states FY2025 revenue and commercialization details; used as the primary positioning source."
+    },
+    {
+      "claim": "CLINUVEL reported FY2025 profit before tax of A$51.6 million and EBIT of about A$52 million with a 54% margin; EBITDA was not explicitly surfaced in the accessible text.",
+      "data": {
+        "profit_before_tax_aud_m": 51.6,
+        "ebit_aud_m": 52.0,
+        "ebit_margin_pct": 54,
+        "ebitda": "not clearly disclosed in retrieved text"
+      },
+      "source_url": "https://www.clinuvel.com/wp-content/uploads/2025/08/20250828-clinuvel-delivers-ninth-consecutive-revenues-growth-profit.pdf?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "A S X A N N O U N C E M E N T",
+      "source_date": "2025-08-28",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "The task requested operating metrics; EBIT is a useful proxy here, but EBITDA could not be cleanly extracted from the PDF text available to the tool."
+    },
+    {
+      "claim": "A practical close peer set for CLINUVEL includes commercial rare-disease / specialty-pharma listed names, with broader biotech references kept separate.",
+      "data": {
+        "close_commercial_peers": [
+          "BioMarin Pharmaceutical (BMRN)",
+          "Sarepta Therapeutics (SRPT)",
+          "PTC Therapeutics (PTCT)",
+          "Travere Therapeutics (TVTX)",
+          "Krystal Biotech (KRYS)",
+          "Alnylam Pharmaceuticals (ALNY)",
+          "Ascendis Pharma (ASND)",
+          "Catalyst Pharmaceuticals (CPRX)",
+          "Zevra Therapeutics (ZVRA)"
+        ],
+        "broader_biotech_references": [
+          "Ultragenyx Pharmaceutical (RARE)",
+          "Takeda (TAK)",
+          "Recordati (RICFY / REC.MI)"
+        ]
+      },
+      "source_url": "https://www.claritasrx.com/thought-leadership/top-specialty-pharma-leaders-reshaping-the-rare-disease-market/?utm_source=openai",
+      "source_tier": 3,
+      "source_title": "Top Specialty Pharma Leaders Reshaping the Rare Disease Market",
+      "source_date": null,
+      "retrieval_date": "2026-04-20",
+      "confidence": "medium",
+      "notes": "This is a secondary industry article; useful for peer identification only, not for financial facts. I separated more profitable specialty-pharma names and broader references from the closer commercial rare-disease set."
+    },
+    {
+      "claim": "BioMarin is a much larger commercial rare-disease peer, with 2025 revenue of about US$2.9 billion and strong operating margin commentary.",
+      "data": {
+        "revenue_usd_b": "2.9",
+        "fiscal_year": "FY2025",
+        "margin_comment": "non-GAAP operating margin expected ~40% in 2026 (excluding Amicus transaction impact)"
+      },
+      "source_url": "https://www.biomarin.com/news/press-releases/biomarin-reports-fourth-quarter-and-full-year-2025-financial-and-operating-results/?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "BioMarin Reports Fourth Quarter and Full-year 2025 Financial and Operating Results",
+      "source_date": "2026-02-05",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Market-cap source was available from a search snippet; revenue/margin details came from the company press release search snippet. Geography was discussed qualitatively rather than in a simple segment table."
+    },
+    {
+      "claim": "BioMarin’s market capitalization was about US$10.71 billion on CompaniesMarketCap.",
+      "data": {
+        "market_cap_usd_b": 10.71
+      },
+      "source_url": "https://companiesmarketcap.com/biomarin/marketcap/?utm_source=openai",
+      "source_tier": 3,
+      "source_title": "BioMarin Pharmaceutical (BMRN) - Market capitalization",
+      "source_date": null,
+      "retrieval_date": "2026-04-20",
+      "confidence": "medium",
+      "notes": "Market-cap figure came from a search snippet rather than a fetched page, so treat as approximate current point-in-time data."
+    },
+    {
+      "claim": "Catalyst Pharmaceuticals is a profitable commercial rare-disease specialty-pharma peer, with market cap around US$3.17 billion.",
+      "data": {
+        "market_cap_usd_b": 3.17
+      },
+      "source_url": "https://companiesmarketcap.com/catalyst-pharmaceuticals/marketcap/?utm_source=openai",
+      "source_tier": 3,
+      "source_title": "Catalyst Pharmaceuticals (CPRX) - Market capitalization",
+      "source_date": null,
+      "retrieval_date": "2026-04-20",
+      "confidence": "medium",
+      "notes": "Market-cap figure came from a search snippet. Catalyst is especially relevant as a profitable commercial rare-disease comp."
+    },
+    {
+      "claim": "Alnylam is a much larger commercial rare-disease peer; 2025 annual report data show revenues of US$3.714 billion, net product revenues of US$2.987 billion, royalty revenue of US$174.0 million, and net income of US$313.7 million.",
+      "data": {
+        "revenue_usd_b": 3.714,
+        "net_product_revenues_usd_b": 2.987,
+        "royalty_revenue_usd_m": 174.0,
+        "net_income_usd_m": 313.7,
+        "fiscal_year": "2025"
+      },
+      "source_url": "https://investors.alnylam.com/sites/default/files/pdfs/alnylam-2025-annual-report.pdf?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "Alnylam 2025 Annual Report",
+      "source_date": "2026-04-02",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Useful as an upper-end commercial rare-disease reference; revenue scale is far above CLINUVEL and its valuation multiples may not be directly comparable."
+    },
+    {
+      "claim": "CLINUVEL’s market capitalization was shown as about US$0.33 billion in April 2026.",
+      "data": {
+        "market_cap_usd_b": 0.33
+      },
+      "source_url": "https://companiesmarketcap.com/clinuvel-pharmaceuticals/marketcap/?utm_source=openai",
+      "source_tier": 3,
+      "source_title": "Clinuvel Pharmaceuticals (CUV.AX) - Market capitalization",
+      "source_date": null,
+      "retrieval_date": "2026-04-20",
+      "confidence": "medium",
+      "notes": "Search-snippet market-cap estimate only; use as indicative scale, not audited fact."
+    }
+  ],
+  "not_found": [
+    "A clean, company-reported FY2025 EBITDA figure for CLINUVEL could not be cleanly extracted from the retrieved PDF text.",
+    "Reliable, directly fetched current EV / sales, EV / EBITDA, and P/E values for each peer were not available within the source budget; available data were mostly market-cap snippets and company revenue/margin disclosures.",
+    "A simple, authoritative peer-ranking table from a single source was not located; peer set was assembled from company-commercial profile plus secondary industry references."
+  ],
+  "contradictions": [],
+  "summary": "CLINUVEL is best framed as a profitable commercial-stage rare-disease/specialty-pharma company rather than a typical development-stage biotech. The closest listed comp bucket is other commercial rare-disease names such as BioMarin, Catalyst, Sarepta, PTC, Travere, Krystal, Alnylam, Ascendis, and Zevra; broader or less directly comparable references include Ultragenyx, Takeda, and Recordati. Current market-cap snippets suggest CLINUVEL is much smaller than BioMarin/Alnylam and closer to the small-/mid-cap rare-disease specialty-pharma universe."
+}

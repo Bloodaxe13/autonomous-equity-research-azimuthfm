@@ -1,0 +1,142 @@
+{
+  "facet": "business_model_and_pipeline",
+  "ticker": "ASX:CUV",
+  "completed_at": "2026-04-20T00:00:00Z",
+  "tool_calls_used": 8,
+  "findings": [
+    {
+      "claim": "CLINUVEL is a commercial-stage photomedicine company whose lead/only marketed product is SCENESSE (afamelanotide 16mg), a first-in-class photoprotective drug focused on rare light-related disorders.",
+      "data": "Commercial-stage photomedicine company; lead product SCENESSE (afamelanotide 16mg)",
+      "source_url": "https://www.clinuvel.com/pharmaceuticals/products/scenessenon-professional/?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "SCENESSE® (afamelanotide 16mg) - CLINUVEL",
+      "source_date": "2023-12-10",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Company product page and FAQs together support mechanism/positioning."
+    },
+    {
+      "claim": "SCENESSE is approved/authorised for erythropoietic protoporphyria (EPP) in Europe/EU, the USA, Australia, and Israel (market access / commercial distribution in Israel per CLINUVEL).",
+      "data": [
+        "EU",
+        "USA",
+        "Australia",
+        "Israel"
+      ],
+      "source_url": "https://www.clinuvel.com/faqs/?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "FAQs - CLINUVEL",
+      "source_date": "2025-09-10",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "CLINUVEL FAQ states approved/authorised status; Israel referenced in CLINUVEL announcement/search snippet."
+    },
+    {
+      "claim": "CLINUVEL says SCENESSE’s U.S. indication is to increase pain-free light exposure in adult EPP patients with a history of phototoxicity, while the EU/Australia wording emphasizes prevention of phototoxicity in adult EPP patients.",
+      "data": "U.S.: increase pain-free light exposure in adult EPP with history of phototoxicity; EU/Australia: prevention of phototoxicity in adult EPP",
+      "source_url": "https://www.clinuvel.com/faqs/?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "FAQs - CLINUVEL",
+      "source_date": "2025-09-10",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Indication wording varies by jurisdiction."
+    },
+    {
+      "claim": "CLINUVEL’s public FAQ describes afamelanotide/SCENESSE as being investigated for unapproved indications including vitiligo, variegate porphyria, xeroderma pigmentosum, and arterial ischaemic stroke.",
+      "data": [
+        "vitiligo",
+        "variegate porphyria",
+        "xeroderma pigmentosum",
+        "arterial ischaemic stroke"
+      ],
+      "source_url": "https://www.clinuvel.com/faqs/?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "FAQs - CLINUVEL",
+      "source_date": "2025-09-10",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "These are investigational, not approved, per CLINUVEL."
+    },
+    {
+      "claim": "CLINUVEL’s FY2025 revenue was A$105.3 million, and commercial sales including Special Access Scheme reimbursement were A$95.0 million (+8% year on year).",
+      "data": {
+        "FY2025_total_revenue_AUD_m": 105.3,
+        "commercial_sales_including_SAS_reimbursement_AUD_m": 95.0,
+        "yoy_growth_pct": 8
+      },
+      "source_url": "https://www.clinuvel.com/wp-content/uploads/2025/08/clinuvel-ar25-digital-20250828.pdf?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "CLINUVEL Annual Report 2025",
+      "source_date": "2025-08-28",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Value was visible in search snippet tied to the annual report; document fetch succeeded but text extraction was not readable due to PDF encoding."
+    },
+    {
+      "claim": "CLINUVEL reported more than 18,500 SCENESSE implants administered globally to EPP patients by FY2025.",
+      "data": ">18,500 implants",
+      "source_url": "https://www.clinuvel.com/wp-content/uploads/2025/08/clinuvel-ar25-digital-20250828.pdf?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "CLINUVEL Annual Report 2025",
+      "source_date": "2025-08-28",
+      "retrieval_date": "2026-04-20",
+      "confidence": "medium",
+      "notes": "From the annual report search snippet; not directly text-extracted from the PDF."
+    },
+    {
+      "claim": "CLINUVEL’s commercial model is single-product-led with revenue dominated by SCENESSE sales and reimbursement-supported access pathways, including Special Access Scheme reimbursement.",
+      "data": "Single-product-led commercial model centered on SCENESSE sales and reimbursement-supported access",
+      "source_url": "https://www.clinuvel.com/wp-content/uploads/2025/08/clinuvel-ar25-digital-20250828.pdf?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "CLINUVEL Annual Report 2025",
+      "source_date": "2025-08-28",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Supported by annual report snippet and company financial summary snippet."
+    },
+    {
+      "claim": "CLINUVEL’s pipeline is centered on afamelanotide/SCENESSE or PRÉNUMBRA repurposing in vitiligo, variegate porphyria, xeroderma pigmentosum, and arterial ischaemic stroke.",
+      "data": [
+        "vitiligo",
+        "variegate porphyria",
+        "xeroderma pigmentosum",
+        "arterial ischaemic stroke"
+      ],
+      "source_url": "https://www.clinuvel.com/faqs/?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "FAQs - CLINUVEL",
+      "source_date": "2025-09-10",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Pipeline is mostly indication-expansion rather than platform breadth."
+    },
+    {
+      "claim": "CLINUVEL’s investor/company-snapshot page states FY June 2025 total revenue was A$105.3m and that SCENESSE has approved use in EPP across Europe, the USA, Israel, and Australia.",
+      "data": {
+        "FY2025_revenue_AUD_m": 105.3,
+        "approved_geographies": [
+          "Europe",
+          "USA",
+          "Israel",
+          "Australia"
+        ]
+      },
+      "source_url": "https://www.clinuvel.com/investor/company-snapshot/?utm_source=openai",
+      "source_tier": 1,
+      "source_title": "Company Snapshot - CLINUVEL",
+      "source_date": "2025-08-28",
+      "retrieval_date": "2026-04-20",
+      "confidence": "high",
+      "notes": "Company snapshot corroborates the annual report and approval footprint."
+    }
+  ],
+  "not_found": [
+    "Detailed segment economics beyond overall FY2025 revenue/commercial sales split (e.g., product gross margin, regional revenue mix, reimbursement mix by geography)",
+    "Exact current patient counts / prescription volumes by geography",
+    "Formal clinical stage labels and next milestones for each investigational asset from a dated pipeline table",
+    "Full text extraction of the FY2025 annual report PDF was not possible from the PDF fetch due to encoding/truncation; revenue figures were captured from search snippets and company snapshot page"
+  ],
+  "contradictions": [],
+  "summary": "CLINUVEL is essentially a single-product, commercial-stage photomedicine company built around SCENESSE (afamelanotide 16mg) for EPP, with approved/authorised markets in Europe, the USA, Australia, and Israel. The pipeline is mostly label expansion around the same active ingredient/brand family, with public investigational focus on vitiligo, variegate porphyria, xeroderma pigmentosum, and arterial ischaemic stroke; FY2025 revenue was A$105.3m, with A$95.0m of commercial sales including Special Access Scheme reimbursement."
+}

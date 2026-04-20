@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 
 SECTION_ORDER = [
@@ -38,6 +38,65 @@ class RedTeamVerdictType(str, Enum):
     STRONG_COUNTER_CASE = "strong_counter_case"
     WEAK_COUNTER_CASE = "weak_counter_case"
     COVERED_GROUND = "covered_ground"
+
+
+class SourceAuthorityClass(str, Enum):
+    PRIMARY_TRUTH = "primary_truth"
+    TRUSTED_STRUCTURED_SECONDARY = "trusted_structured_secondary"
+    NARRATIVE_SECONDARY = "narrative_secondary"
+    LOW_TRUST_TERTIARY = "low_trust_tertiary"
+
+
+class VerificationStatus(str, Enum):
+    UNVERIFIED = "unverified"
+    VERIFIED_PRIMARY_MATCH = "verified_primary_match"
+    VERIFIED_WITH_CAVEAT = "verified_with_caveat"
+    CONFLICTED = "conflicted"
+
+
+class SourceMetadata(BaseModel):
+    authority_class: SourceAuthorityClass = SourceAuthorityClass.PRIMARY_TRUTH
+    source_family: str = "company_primary"
+    source_type: str = "filing"
+    origin: str = "direct"
+    verification_status: VerificationStatus = VerificationStatus.UNVERIFIED
+    captured_at: Optional[str] = None
+    raw_payload_path: Optional[str] = None
+    quality_flags: List[str] = Field(default_factory=list)
+    comparability_flags: List[str] = Field(default_factory=list)
+
+    @field_validator('authority_class', mode='before')
+    @classmethod
+    def normalize_authority_class(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().lower().replace('-', '_').replace(' ', '_')
+        alias_map = {
+            'primary': 'primary_truth',
+            'primary_source': 'primary_truth',
+            'secondary': 'trusted_structured_secondary',
+            'structured_secondary': 'trusted_structured_secondary',
+            'trusted_secondary': 'trusted_structured_secondary',
+            'narrative': 'narrative_secondary',
+            'tertiary': 'low_trust_tertiary',
+            'low_trust': 'low_trust_tertiary',
+        }
+        return alias_map.get(normalized, normalized)
+
+    @field_validator('verification_status', mode='before')
+    @classmethod
+    def normalize_verification_status(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().lower().replace('-', '_').replace(' ', '_')
+        alias_map = {
+            'verified': 'verified_primary_match',
+            'verified_match': 'verified_primary_match',
+            'caveated': 'verified_with_caveat',
+            'with_caveat': 'verified_with_caveat',
+            'conflict': 'conflicted',
+        }
+        return alias_map.get(normalized, normalized)
 
 
 class SearchResult(BaseModel):
@@ -94,9 +153,12 @@ class FindingItem(BaseModel):
     source_tier: int
     source_title: str
     source_date: Optional[str] = None
+    data_as_of: Optional[str] = None
+    period_label: Optional[str] = None
     retrieval_date: str
     confidence: FindingConfidence
     notes: str = ""
+    source_metadata: Optional[SourceMetadata] = None
 
 
 class ContradictionItem(BaseModel):
@@ -172,7 +234,22 @@ class FindingIndexItem(BaseModel):
     source_url: str
     source_title: str
     source_tier: int
+    source_date: Optional[str] = None
+    data_as_of: Optional[str] = None
+    period_label: Optional[str] = None
     confidence: FindingConfidence
+    source_metadata: Optional[SourceMetadata] = None
+
+
+class StructuredSecondaryMetric(BaseModel):
+    ticker: str
+    metric: Literal["roic_pct", "eps_revision_3m_pct"]
+    value: float
+    unit: str
+    source_url: str
+    source_title: str
+    source_tier: int = 2
+    source_metadata: SourceMetadata
 
 
 class FinalReport(BaseModel):

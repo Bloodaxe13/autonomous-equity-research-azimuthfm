@@ -1,0 +1,29 @@
+{
+  "stage": "lead",
+  "error": "7 validation errors for FinalReport\ntier\n  Field required [type=missing, input_value={'company': 'CLINUVEL PHA...as moved materially.']}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing\ngenerated_at\n  Field required [type=missing, input_value={'company': 'CLINUVEL PHA...as moved materially.']}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing\nheader_block\n  Field required [type=missing, input_value={'company': 'CLINUVEL PHA...as moved materially.']}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing\nsections\n  Input should be a valid dictionary or instance of ReportSections [type=model_type, input_value=[{'section': '0_header_bl...ew looks favourable.'}}], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.10/v/model_type\nrating\n  Field required [type=missing, input_value={'company': 'CLINUVEL PHA...as moved materially.']}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing\nprice_target_aud\n  Field required [type=missing, input_value={'company': 'CLINUVEL PHA...as moved materially.']}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing\nimplied_return_pct\n  Field required [type=missing, input_value={'company': 'CLINUVEL PHA...as moved materially.']}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing",
+  "response_ids": [
+    "resp_03f81e241a4e737c0069e628414660819ea9b0c93bb1d5658a",
+    "resp_03f81e241a4e737c0069e62beab948819ebcdd0e7e4e20d43f",
+    "resp_03f81e241a4e737c0069e62cebe7c8819eb8efe53b34e61aa0",
+    "resp_03f81e241a4e737c0069e62d03b348819e9095399ce2397c3a",
+    "resp_03f81e241a4e737c0069e62d712d5c819eb09976d056945b6d"
+  ],
+  "tool_counts": {
+    "memory_write": 1,
+    "run_subagent": 11,
+    "web_search": 5,
+    "code_execution": 1,
+    "complete_task": 1
+  },
+  "completed_at": "2026-04-20T13:44:15Z",
+  "restart_from_stage": "lead",
+  "retrigger_agents": [
+    "lead"
+  ],
+  "recommended_context_files": [
+    "/tmp/azimuthfm-live-real/memory/live-cuv-real-pipeline/agent_artifacts/lead/summary.json",
+    "/tmp/azimuthfm-live-real/memory/live-cuv-real-pipeline/agent_artifacts/lead/tool_history.json",
+    "/tmp/azimuthfm-live-real/memory/live-cuv-real-pipeline/agent_artifacts/lead/raw_api_payloads.json",
+    "/tmp/azimuthfm-live-real/memory/live-cuv-real-pipeline/agent_artifacts/lead/parsed_output.json"
+  ]
+}

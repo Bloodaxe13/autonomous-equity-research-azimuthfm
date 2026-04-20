@@ -1,6 +1,6 @@
 # Azimuth Equity Research AZIMUTHFM
 
-Last updated: 2026-04-20 17:28 AEST
+Last updated: 2026-04-21 04:02 AEST
 
 Autonomous Equity Research AZIMUTHFM.
 
@@ -12,6 +12,18 @@ The build is governed by:
 If any derivative file conflicts with that spec, the spec wins.
 
 ## Current implementation state
+
+Model naming rule:
+- canonical repo/runtime names use the GPT-5.4 family only
+- lead/review: `gpt-5.4`
+- subagent/citation/web-enabled cheap path: `gpt-5.4-mini`
+- requests are sent to providers using those exact GPT-5.4 family names, not generic GPT-5 labels
+
+Failure-handling rule:
+- the pipeline must NOT coerce invalid stage outputs into downstream contracts
+- the pipeline must NOT use deterministic fallbacks to fake LLM-stage success in an LLM-output-driven system
+- if a stage fails validation, the run stops at that stage
+- raw API payloads, tool history, timing, response IDs, and restart metadata are persisted so the failed run can be resumed later without blind re-execution
 
 Implemented now in this repo:
 - prompt layer under `prompts/`
@@ -33,8 +45,9 @@ Implemented now in this repo:
 - `python3 -m src.cuv_runtime_entrypoint`
 
 Current result:
-- `11 passed`
-- CUV-only MVP packet generated successfully
+- targeted runtime suite: `35 passed`
+- `py_compile` on touched runtime/test files passed
+- live stage-boundary red-team replay completed successfully and produced a citation-annotated report
 
 ## Important limitation
 
@@ -50,12 +63,12 @@ It is currently an MVP runtime proving:
 - CUV-only test flow
 
 Still to finish for full spec fidelity:
-- live lead/subagent execution against the final role prompts
-- live OpenAI web search + fetch loop in the orchestrated run
+- full live paid end-to-end CUV completion through citation on current prompts
+- stronger current-state retrieval on governance, competition, and rollout freshness inside real runs
 - full institutional data ingestion
 - complete DCF/comps/reverse-DCF wiring from live findings
 - richer consistency checks and citation enforcement
-- report tier specialization beyond the current initiation-focused MVP
+- report tier specialization beyond the current initiation-focused path
 
 ## Repo map
 

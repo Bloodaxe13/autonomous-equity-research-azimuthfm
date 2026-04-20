@@ -1,5 +1,6 @@
 models:
   lead_analyst:
+    model: gpt-5.4
     purpose: orchestration, synthesis, report writing
     prompt_file: prompts/lead_analyst.md
     temperature: 0.2
@@ -12,6 +13,7 @@ models:
       - memory_read
       - complete_task
   research_subagent:
+    model: gpt-5.4-mini
     purpose: single-facet evidence gathering and structured finding compression
     prompt_file: prompts/research_subagent.md
     temperature: 0.1
@@ -21,6 +23,7 @@ models:
       - web_fetch
       - complete_task
   red_team:
+    model: gpt-5.4
     purpose: independent adversarial review of completed report
     prompt_file: prompts/red_team.md
     temperature: 0.1
@@ -28,6 +31,7 @@ models:
     capabilities:
       - complete_task
   citation:
+    model: gpt-5.4-mini
     purpose: claim-level attribution and computation-log attachment
     prompt_file: prompts/citation.md
     temperature: 0.0
