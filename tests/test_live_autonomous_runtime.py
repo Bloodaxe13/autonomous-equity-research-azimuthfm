@@ -326,3 +326,16 @@ def test_live_runtime_repairs_subagent_output_when_loop_exhausts(tmp_path: Path)
     packet = runtime.run_subagent({'facet': 'business_model', 'ticker': 'ACME'}, run_id='run-1')
     assert packet.summary == 'repaired'
     assert packet.not_found == ['repair']
+
+
+def test_run_lead_exposes_web_fetch_and_document_query_when_document_toolkit_available(tmp_path: Path):
+    valid_report = _valid_final_report_payload()
+    runtime = _runtime(tmp_path, [
+        FakeResponse({'id': 'lead_1', 'output': [{'type': 'function_call', 'name': 'complete_task', 'call_id': 'lead_done', 'arguments': json.dumps({'payload': valid_report})}]})
+    ])
+
+    runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-tools'))
+
+    tool_names = {tool['name'] for tool in runtime.client.responses.calls[0]['tools']}
+    assert 'web_fetch' in tool_names
+    assert 'document_query' in tool_names

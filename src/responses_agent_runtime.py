@@ -396,6 +396,7 @@ def build_default_agent_tools(
     code_execution: CodeExecutionTool,
     memory_store: JsonMemoryStore,
     subagent_runner: Callable[[JSONDict, AgentRunContext], Any] | None = None,
+    document_query_tool: Callable[[JSONDict, AgentRunContext], Any] | None = None,
 ) -> dict[str, AgentTool]:
     def _complete_task(arguments: JSONDict, _: AgentRunContext) -> Any:
         return _first_present(arguments, "payload", "result", "final_report", "findings_json", default=arguments)
@@ -438,6 +439,11 @@ def build_default_agent_tools(
             raise TypeError("run_subagent expects a JSON object brief")
         return subagent_runner(brief, context)
 
+    def _document_query(arguments: JSONDict, context: AgentRunContext) -> Any:
+        if document_query_tool is None:
+            raise RuntimeError("document_query tool requested but no document_query_tool was configured")
+        return document_query_tool(arguments, context)
+
     def _coerce_subagent_brief_string(raw: str) -> JSONDict:
         text = (raw or '').strip()
         if not text:
@@ -465,7 +471,7 @@ def build_default_agent_tools(
         raise TypeError("run_subagent string brief was not valid JSON")
 
     any_schema = {}
-    return {
+    tools = {
         "complete_task": AgentTool(
             name="complete_task",
             description="Return the final payload and terminate the agent loop.",
@@ -548,6 +554,26 @@ def build_default_agent_tools(
             handler=_run_subagent,
         ),
     }
+    if document_query_tool is not None:
+        tools["document_query"] = AgentTool(
+            name="document_query",
+            description="Analyze one or more primary documents using OpenAI Responses API native PDF input or hosted file search.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string"},
+                    "document_urls": {"type": "array", "items": {"type": "string"}},
+                    "document_paths": {"type": "array", "items": {"type": "string"}},
+                    "mode": {"type": "string", "enum": ["auto", "direct_pdf", "file_search"]},
+                    "task_type": {"type": "string", "enum": ["summarize", "extract", "critique", "qa", "search"]},
+                    "max_num_results": {"type": "integer", "minimum": 1, "maximum": 20},
+                    "debug": {"type": "boolean"},
+                },
+                "required": ["question"],
+            },
+            handler=_document_query,
+        )
+    return tools
 
 
 def build_default_prompt_executor(
@@ -561,6 +587,7 @@ def build_default_prompt_executor(
     default_model: str = "gpt-5.4",
     max_turns: int = 20,
     max_output_tokens: int = 100000,
+    document_query_tool: Callable[[JSONDict, AgentRunContext], Any] | None = None,
 ) -> ResponsesAgentLoop:
     return ResponsesAgentLoop(
         client=client,
@@ -570,6 +597,7 @@ def build_default_prompt_executor(
             code_execution=code_execution or CodeExecutionTool(),
             memory_store=memory_store,
             subagent_runner=subagent_runner,
+            document_query_tool=document_query_tool,
         ),
         default_model=default_model,
         max_turns=max_turns,

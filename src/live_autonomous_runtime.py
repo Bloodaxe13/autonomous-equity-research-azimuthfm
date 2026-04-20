@@ -19,9 +19,10 @@ from src.contracts_runtime import (
     TaskInput,
 )
 from src.memory.json_store_runtime import JsonMemoryStore
-from src.responses_agent_runtime import AgentLoopIncomplete, AgentRunContext, ResponsesAgentLoop, _tool_counts, build_default_agent_tools, build_default_prompt_executor
+from src.responses_agent_runtime import AgentLoopIncomplete, AgentRunContext, ResponsesAgentLoop, _tool_counts, build_default_agent_tools
 from src.structured_secondary import build_structured_secondary_context
 from src.tools.code_execution_runtime import CodeExecutionTool
+from src.tools.runtime_documents import OpenAIDocumentToolkit
 from src.tools.runtime_web import WebFetchTool, WebSearchTool
 
 
@@ -44,6 +45,7 @@ class AutonomousEquityResearchRuntime:
     web_fetch: WebFetchTool
     code_execution: CodeExecutionTool
     client: Any | None = None
+    document_toolkit: OpenAIDocumentToolkit | None = None
     lead_model: str = "gpt-5.4"
     subagent_model: str = "gpt-5.4-mini"
     review_model: str = "gpt-5.4"
@@ -57,48 +59,12 @@ class AutonomousEquityResearchRuntime:
 
     def __post_init__(self) -> None:
         self.repo_root = Path(self.repo_root)
+        if self.document_toolkit is None:
+            try:
+                self.document_toolkit = OpenAIDocumentToolkit(client=self.client, cache_dir=Path(self.memory_store.root) / '_document_cache')
+            except Exception:
+                self.document_toolkit = None
         self.prompt_dir = self.repo_root / "prompts"
-        self.subagent_executor = build_default_prompt_executor(
-            memory_store=self.memory_store,
-            web_search=self.web_search,
-            web_fetch=self.web_fetch,
-            code_execution=self.code_execution,
-            client=self.client,
-            default_model=self.subagent_model,
-            max_turns=self.subagent_max_turns,
-            max_output_tokens=self.subagent_max_output_tokens,
-        )
-        self.lead_executor = build_default_prompt_executor(
-            memory_store=self.memory_store,
-            web_search=self.web_search,
-            web_fetch=self.web_fetch,
-            code_execution=self.code_execution,
-            subagent_runner=self._run_subagent_callback,
-            client=self.client,
-            default_model=self.lead_model,
-            max_turns=self.lead_max_turns,
-            max_output_tokens=self.lead_max_output_tokens,
-        )
-        self.red_team_executor = build_default_prompt_executor(
-            memory_store=self.memory_store,
-            web_search=self.web_search,
-            web_fetch=self.web_fetch,
-            code_execution=self.code_execution,
-            client=self.client,
-            default_model=self.review_model,
-            max_turns=self.review_max_turns,
-            max_output_tokens=self.review_max_output_tokens,
-        )
-        self.citation_executor = build_default_prompt_executor(
-            memory_store=self.memory_store,
-            web_search=self.web_search,
-            web_fetch=self.web_fetch,
-            code_execution=self.code_execution,
-            client=self.client,
-            default_model=self.review_model,
-            max_turns=self.review_max_turns,
-            max_output_tokens=self.review_max_output_tokens,
-        )
 
     def run(self, task: TaskInput) -> ReportPacket:
         lead_recovered = False
@@ -251,11 +217,13 @@ class AutonomousEquityResearchRuntime:
         )
 
     def run_subagent(self, brief: dict[str, Any], *, run_id: str) -> SubagentFindings:
+        document_query_tool = self._document_query_callback if self.document_toolkit is not None else None
         tools = build_default_agent_tools(
             web_search=self.web_search,
             web_fetch=self.web_fetch,
             code_execution=self.code_execution,
             memory_store=self.memory_store,
+            document_query_tool=document_query_tool,
         )
         tools['complete_task'].parameters = SubagentFindings.model_json_schema()
         executor = ResponsesAgentLoop(
@@ -270,7 +238,7 @@ class AutonomousEquityResearchRuntime:
                 self.prompt_dir / "research_subagent.md",
                 user_input={"task_brief": brief},
                 prompt_context={"TaskBrief": json.dumps(brief, indent=2, ensure_ascii=False)},
-                tool_names=["web_search", "web_fetch", "complete_task"],
+                tool_names=[name for name in ["web_search", "web_fetch", "document_query", "complete_task"] if name in tools],
                 run_id=run_id,
             )
             try:
@@ -293,12 +261,14 @@ class AutonomousEquityResearchRuntime:
     def run_lead(self, task: TaskInput) -> FinalReport:
         structured_secondary = build_structured_secondary_context(task.ticker)
         self.memory_store.write(task.run_id, 'structured_secondary_context', structured_secondary)
+        document_query_tool = self._document_query_callback if self.document_toolkit is not None else None
         tools = build_default_agent_tools(
             web_search=self.web_search,
             web_fetch=self.web_fetch,
             code_execution=self.code_execution,
             memory_store=self.memory_store,
             subagent_runner=self._run_subagent_callback,
+            document_query_tool=document_query_tool,
         )
         tools['complete_task'].parameters = FinalReport.model_json_schema()
         executor = ResponsesAgentLoop(
@@ -322,7 +292,7 @@ class AutonomousEquityResearchRuntime:
                 "TaskJSON": task.model_dump(mode="json"),
                 "StructuredSecondaryContext": json.dumps(structured_secondary, indent=2, ensure_ascii=False),
             },
-            tool_names=["run_subagent", "code_execution", "web_search", "memory_write", "memory_read", "complete_task"],
+            tool_names=[name for name in ["run_subagent", "document_query", "code_execution", "web_search", "web_fetch", "memory_write", "memory_read", "complete_task"] if name in tools],
             run_id=task.run_id,
         )
         stage_dir = self._persist_agent_artifacts(task.run_id, "lead", result, result.final_output)
@@ -409,6 +379,19 @@ class AutonomousEquityResearchRuntime:
         run_id = context.run_id or "subagent-run"
         packet = self.run_subagent(brief, run_id=run_id)
         return packet.model_dump(mode="json")
+
+    def _document_query_callback(self, arguments: dict[str, Any], _: AgentRunContext) -> Any:
+        if self.document_toolkit is None:
+            raise RuntimeError("document_query requested but document toolkit is unavailable")
+        return self.document_toolkit.analyze(
+            question=str(arguments.get('question', '')),
+            document_urls=list(arguments.get('document_urls') or []),
+            document_paths=list(arguments.get('document_paths') or []),
+            mode=str(arguments.get('mode') or 'auto'),
+            task_type=str(arguments.get('task_type') or 'qa'),
+            max_num_results=int(arguments.get('max_num_results') or 5),
+            debug=bool(arguments.get('debug', False)),
+        )
 
     def _repair_subagent_output(self, *, raw_output: Any, brief: dict[str, Any], run_id: str) -> Any:
         tools = build_default_agent_tools(

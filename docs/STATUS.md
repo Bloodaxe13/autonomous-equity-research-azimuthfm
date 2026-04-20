@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-21 04:02 AEST
+Last updated: 2026-04-21 04:38 AEST
 
 ## Completed in this build pass
 
@@ -54,8 +54,8 @@ Last updated: 2026-04-21 04:02 AEST
   - parsed outputs per stage
 - Enabled parallel execution of independent tool calls (`run_subagent`, `web_search`, `web_fetch`, `code_execution`) when the model emits them in the same turn.
 - Achieved a successful live OpenAI subagent smoke test on CUV business-model research.
-- Added tests for calculations, MVP runtime, Responses loop, live runtime, payload normalization, tool output limits, web-search annotation parsing, lead-output normalization, parallel tool execution, restartable failure handling, runtime web adapters, and structured-secondary loading.
-- Added bounded red-team reopen flow, fail-closed citation gating, raw failure artifact persistence, structured-secondary scaffolding, current-state retrieval prompt upgrades, and confident final-report voice constraints.
+- Added tests for calculations, MVP runtime, Responses loop, live runtime, payload normalization, tool output limits, web-search annotation parsing, lead-output normalization, parallel tool execution, restartable failure handling, runtime web adapters, structured-secondary loading, and native document/PDF handling.
+- Added bounded red-team reopen flow, fail-closed citation gating, raw failure artifact persistence, structured-secondary scaffolding, current-state retrieval prompt upgrades, confident final-report voice constraints, and Responses-API-native PDF/document querying.
 - Completed live red-team stage-boundary replay on saved CUV artifacts using the calibrated red-team prompt, producing a citation-annotated report without rerunning upstream research.
 
 ## Verification completed
@@ -66,11 +66,12 @@ Commands run:
 - `python3 -m src.cuv_runtime_entrypoint`
 
 Results:
-- targeted runtime verification suite: `35 passed`
+- targeted runtime verification suite: `43 passed`
 - `py_compile` on touched runtime/test files passed
 - CUV-only MVP packet generated successfully
 - live OpenAI subagent smoke test on CUV business-model facet completed successfully
 - live stage-boundary red-team replay completed successfully and produced `/tmp/azimuthfm-red-team-live-replay/annotated_report.md`
+- native document/PDF runtime tests now pass for direct single-PDF reasoning, vector-store file_search over multiple PDFs, tool registration via `document_query`, fast failure on vector-store indexing errors, and lead-stage exposure of prompt-advertised web/document tools
 
 ## Current artifact output
 

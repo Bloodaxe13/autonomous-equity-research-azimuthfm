@@ -1,6 +1,6 @@
 # Azimuth Equity Research AZIMUTHFM
 
-Last updated: 2026-04-21 04:02 AEST
+Last updated: 2026-04-21 04:38 AEST
 
 Autonomous Equity Research AZIMUTHFM.
 
@@ -45,9 +45,10 @@ Implemented now in this repo:
 - `python3 -m src.cuv_runtime_entrypoint`
 
 Current result:
-- targeted runtime suite: `35 passed`
+- targeted runtime suite: `43 passed`
 - `py_compile` on touched runtime/test files passed
 - live stage-boundary red-team replay completed successfully and produced a citation-annotated report
+- native OpenAI Responses PDF/document handling is now wired into the runtime via `document_query`, supporting both direct single-PDF reasoning and vector-store `file_search` over multiple PDFs
 
 ## Important limitation
 

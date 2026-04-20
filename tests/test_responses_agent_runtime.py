@@ -43,7 +43,7 @@ class FakeClient:
         self.responses = FakeResponsesAPI(scripted_responses)
 
 
-def _tools(memory_store: JsonMemoryStore, *, client: FakeClient, subagent_runner=None):
+def _tools(memory_store: JsonMemoryStore, *, client: FakeClient, subagent_runner=None, document_query_tool=None):
     search = WebSearchTool(
         StaticSearchAdapter(
             {
@@ -76,6 +76,7 @@ def _tools(memory_store: JsonMemoryStore, *, client: FakeClient, subagent_runner
         subagent_runner=subagent_runner,
         client=client,
         default_model="gpt-5-mini",
+        document_query_tool=document_query_tool,
     )
 
 
@@ -417,3 +418,69 @@ def test_tool_errors_are_returned_to_model_and_do_not_crash_loop(tmp_path: Path)
     assert result.tool_history[0]["tool"] == "run_subagent"
     assert result.tool_history[0]["result"]["ok"] is False
     assert result.tool_history[0]["result"]["error_type"] == 'TypeError'
+
+
+def test_default_tools_support_document_query_tool(tmp_path: Path):
+    prompt_file = tmp_path / "subagent.md"
+    prompt_file.write_text("Research prompt.", encoding="utf-8")
+
+    def document_query_tool(arguments, context):
+        return {
+            "mode_used": "direct_pdf",
+            "answer": f"document answer for {arguments['question']}",
+            "run_id": context.run_id,
+        }
+
+    client = FakeClient(
+        [
+            FakeResponse(
+                {
+                    "id": "resp_doc_1",
+                    "output": [
+                        {
+                            "type": "function_call",
+                            "name": "document_query",
+                            "call_id": "call_doc_1",
+                            "arguments": json.dumps(
+                                {
+                                    "question": "Summarize the filing",
+                                    "document_urls": ["https://example.test/report.pdf"],
+                                    "task_type": "summarize",
+                                }
+                            ),
+                        }
+                    ],
+                }
+            ),
+            FakeResponse(
+                {
+                    "id": "resp_doc_2",
+                    "output": [
+                        {
+                            "type": "function_call",
+                            "name": "complete_task",
+                            "call_id": "call_doc_2",
+                            "arguments": json.dumps({"payload": {"ok": True}}),
+                        }
+                    ],
+                }
+            ),
+        ]
+    )
+
+    executor = _tools(
+        JsonMemoryStore(tmp_path / "memory"),
+        client=client,
+        document_query_tool=document_query_tool,
+    )
+    result = executor.run_prompt_file(
+        prompt_file,
+        user_input="start",
+        run_id="run-doc-1",
+        tool_names=["document_query", "complete_task"],
+    )
+
+    assert result.final_output == {"ok": True}
+    doc_result = next(item["result"] for item in result.tool_history if item["tool"] == "document_query")
+    assert doc_result["mode_used"] == "direct_pdf"
+    assert doc_result["run_id"] == "run-doc-1"
