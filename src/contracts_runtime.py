@@ -5,7 +5,11 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
+
+
+class StrictBaseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
 SECTION_ORDER = [
@@ -54,7 +58,7 @@ class VerificationStatus(str, Enum):
     CONFLICTED = "conflicted"
 
 
-class SourceMetadata(BaseModel):
+class SourceMetadata(StrictBaseModel):
     authority_class: SourceAuthorityClass = SourceAuthorityClass.PRIMARY_TRUTH
     source_family: str = "company_primary"
     source_type: str = "filing"
@@ -99,26 +103,26 @@ class SourceMetadata(BaseModel):
         return alias_map.get(normalized, normalized)
 
 
-class SearchResult(BaseModel):
+class SearchResult(StrictBaseModel):
     title: str
     url: str
     snippet: str = ""
     source: Optional[str] = None
 
 
-class SearchResults(BaseModel):
+class SearchResults(StrictBaseModel):
     query: str
     results: List[SearchResult] = Field(default_factory=list)
 
 
-class FetchResult(BaseModel):
+class FetchResult(StrictBaseModel):
     url: str
     status_code: int
     content_type: str = "text/plain"
     text: str
 
 
-class CodeExecutionResult(BaseModel):
+class CodeExecutionResult(StrictBaseModel):
     ok: bool
     stdout: str = ""
     stderr: str = ""
@@ -126,7 +130,7 @@ class CodeExecutionResult(BaseModel):
     locals_snapshot: Dict[str, Any] = Field(default_factory=dict)
 
 
-class TaskInput(BaseModel):
+class TaskInput(StrictBaseModel):
     ticker: str
     tier: ReportTier
     run_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -134,11 +138,11 @@ class TaskInput(BaseModel):
     prior_report: Optional[Dict[str, Any]] = None
 
 
-class SubagentBrief(BaseModel):
+class SubagentBrief(StrictBaseModel):
     facet: str
     ticker: str
     objective: str
-    required_fields: List[str] = Field(default_factory=list)
+    required_fields: List[str]
     source_guidance: str
     task_boundaries: str
     research_budget_hint: int = 8
@@ -146,7 +150,7 @@ class SubagentBrief(BaseModel):
     context_from_prior_waves: str = ""
 
 
-class FindingItem(BaseModel):
+class FindingItem(StrictBaseModel):
     claim: str
     data: Any
     source_url: str
@@ -161,7 +165,7 @@ class FindingItem(BaseModel):
     source_metadata: Optional[SourceMetadata] = None
 
 
-class ContradictionItem(BaseModel):
+class ContradictionItem(StrictBaseModel):
     topic: str
     source_a: str
     source_a_claim: str
@@ -170,7 +174,7 @@ class ContradictionItem(BaseModel):
     notes: str = ""
 
 
-class SubagentFindings(BaseModel):
+class SubagentFindings(StrictBaseModel):
     facet: str
     ticker: str
     completed_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"))
@@ -181,7 +185,7 @@ class SubagentFindings(BaseModel):
     summary: str
 
 
-class HeaderBlock(BaseModel):
+class HeaderBlock(StrictBaseModel):
     ticker: str
     company_name: str
     report_title: str
@@ -198,7 +202,7 @@ class HeaderBlock(BaseModel):
     generated_at: str
 
 
-class ReportSections(BaseModel):
+class ReportSections(StrictBaseModel):
     investment_thesis: str
     business_description: str
     industry_competitive: str
@@ -220,7 +224,7 @@ class ReportSections(BaseModel):
         return self
 
 
-class ComputationLogEntry(BaseModel):
+class ComputationLogEntry(StrictBaseModel):
     n: int
     what: str
     formula: str
@@ -228,7 +232,7 @@ class ComputationLogEntry(BaseModel):
     output: Any = None
 
 
-class FindingIndexItem(BaseModel):
+class FindingIndexItem(StrictBaseModel):
     facet: str
     claim: str
     source_url: str
@@ -241,7 +245,7 @@ class FindingIndexItem(BaseModel):
     source_metadata: Optional[SourceMetadata] = None
 
 
-class StructuredSecondaryMetric(BaseModel):
+class StructuredSecondaryMetric(StrictBaseModel):
     ticker: str
     metric: Literal["roic_pct", "eps_revision_3m_pct"]
     value: float
@@ -252,13 +256,68 @@ class StructuredSecondaryMetric(BaseModel):
     source_metadata: SourceMetadata
 
 
-class FinalReport(BaseModel):
+class CanonicalFcfBridge(StrictBaseModel):
+    npat_aud_m: float
+    depreciation_and_amortization_aud_m: float
+    working_capital_outflow_aud_m: float
+    lease_cash_outflow_aud_m: float
+    capex_aud_m: float
+    equity_free_cash_flow_aud_m: float
+
+
+class CanonicalPeerRow(StrictBaseModel):
+    peer_name: str
+    ticker: str
+    business_fit: str
+    pe_ntm: Optional[float] = None
+    ev_revenue_ntm: Optional[float] = None
+    ev_ebitda_ntm: Optional[float] = None
+    notes: str = ""
+
+
+class CanonicalScenarioRow(StrictBaseModel):
+    scenario: str
+    probability_pct: float
+    price_target_aud: float
+    thesis: str
+
+
+class CanonicalPipelineOptionValue(StrictBaseModel):
+    methodology: str
+    probability_weighted_value_aud_m: float
+    included_in_price_target: bool
+    rationale: str
+
+
+class CanonicalSensitivityRow(StrictBaseModel):
+    wacc_pct: float
+    terminal_growth_pct: float
+    price_target_aud: float
+
+
+class CanonicalSensitivityTable(StrictBaseModel):
+    base_wacc_pct: float
+    base_terminal_growth_pct: float
+    rows: List[CanonicalSensitivityRow] = Field(default_factory=list)
+
+
+class CanonicalValuationInputs(StrictBaseModel):
+    reconciliation_status: Literal["resolved", "unresolved"]
+    fcf_bridge: CanonicalFcfBridge
+    peer_table: List[CanonicalPeerRow]
+    scenario_analysis: List[CanonicalScenarioRow]
+    pipeline_option_value: CanonicalPipelineOptionValue
+    sensitivity_table: CanonicalSensitivityTable
+
+
+class FinalReport(StrictBaseModel):
     ticker: str
     tier: ReportTier
     generated_at: str
     version: str = "0.1.0"
     header_block: HeaderBlock
     sections: ReportSections
+    canonical_valuation_inputs: CanonicalValuationInputs
     computation_log: List[ComputationLogEntry] = Field(default_factory=list)
     findings_index: List[FindingIndexItem] = Field(default_factory=list)
     rating: Literal["Buy", "Hold", "Sell"]
@@ -291,14 +350,14 @@ class FinalReport(BaseModel):
         return self
 
 
-class ChallengeItem(BaseModel):
+class ChallengeItem(StrictBaseModel):
     challenge: str
     evidence_or_logic: str
     where_report_fails: str
     severity: Literal["critical", "material", "minor"]
 
 
-class RedTeamVerdict(BaseModel):
+class RedTeamVerdict(StrictBaseModel):
     ticker: str
     report_rating: Literal["Buy", "Hold", "Sell"]
     red_team_counter_rating: Literal["Buy", "Hold", "Sell"]
@@ -310,7 +369,7 @@ class RedTeamVerdict(BaseModel):
     verdict_reasoning: str
 
 
-class CitationSource(BaseModel):
+class CitationSource(StrictBaseModel):
     n: int
     title: str
     url: str
@@ -319,14 +378,14 @@ class CitationSource(BaseModel):
     claim_refs: List[str] = Field(default_factory=list)
 
 
-class CitationOutput(BaseModel):
+class CitationOutput(StrictBaseModel):
     annotated_report: str
     source_list: List[CitationSource] = Field(default_factory=list)
     computation_log: List[ComputationLogEntry] = Field(default_factory=list)
     unsourced_claims: List[str] = Field(default_factory=list)
 
 
-class ReportPacket(BaseModel):
+class ReportPacket(StrictBaseModel):
     task: TaskInput
     plan: Dict[str, Any]
     subagent_briefs: List[SubagentBrief]

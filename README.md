@@ -49,6 +49,7 @@ Current result:
 - `py_compile` on touched runtime/test files passed
 - live stage-boundary red-team replay completed successfully and produced a citation-annotated report
 - native OpenAI Responses PDF/document handling is now wired into the runtime via `document_query`, supporting both direct single-PDF reasoning and vector-store `file_search` over multiple PDFs
+- legacy PDF text extraction in `web_fetch` is disabled; PDF URLs now return a deprecation/error surface directing agents to `document_query`
 
 ## Important limitation
 

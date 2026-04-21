@@ -1,101 +1,286 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://azimuth.local/schemas/subagent_findings.schema.json",
-  "title": "SubagentFindings",
-  "type": "object",
+  "$defs": {
+    "ContradictionItem": {
+      "additionalProperties": false,
+      "properties": {
+        "topic": {
+          "title": "Topic",
+          "type": "string"
+        },
+        "source_a": {
+          "title": "Source A",
+          "type": "string"
+        },
+        "source_a_claim": {
+          "title": "Source A Claim",
+          "type": "string"
+        },
+        "source_b": {
+          "title": "Source B",
+          "type": "string"
+        },
+        "source_b_claim": {
+          "title": "Source B Claim",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "source_a",
+        "source_a_claim",
+        "source_b",
+        "source_b_claim"
+      ],
+      "title": "ContradictionItem",
+      "type": "object"
+    },
+    "FindingConfidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "FindingConfidence",
+      "type": "string"
+    },
+    "FindingItem": {
+      "additionalProperties": false,
+      "properties": {
+        "claim": {
+          "title": "Claim",
+          "type": "string"
+        },
+        "data": {
+          "title": "Data"
+        },
+        "source_url": {
+          "title": "Source Url",
+          "type": "string"
+        },
+        "source_tier": {
+          "title": "Source Tier",
+          "type": "integer"
+        },
+        "source_title": {
+          "title": "Source Title",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "data_as_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data As Of"
+        },
+        "period_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Label"
+        },
+        "retrieval_date": {
+          "title": "Retrieval Date",
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/FindingConfidence"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "source_metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "claim",
+        "data",
+        "source_url",
+        "source_tier",
+        "source_title",
+        "retrieval_date",
+        "confidence"
+      ],
+      "title": "FindingItem",
+      "type": "object"
+    },
+    "SourceAuthorityClass": {
+      "enum": [
+        "primary_truth",
+        "trusted_structured_secondary",
+        "narrative_secondary",
+        "low_trust_tertiary"
+      ],
+      "title": "SourceAuthorityClass",
+      "type": "string"
+    },
+    "SourceMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_class": {
+          "$ref": "#/$defs/SourceAuthorityClass",
+          "default": "primary_truth"
+        },
+        "source_family": {
+          "default": "company_primary",
+          "title": "Source Family",
+          "type": "string"
+        },
+        "source_type": {
+          "default": "filing",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "origin": {
+          "default": "direct",
+          "title": "Origin",
+          "type": "string"
+        },
+        "verification_status": {
+          "$ref": "#/$defs/VerificationStatus",
+          "default": "unverified"
+        },
+        "captured_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Captured At"
+        },
+        "raw_payload_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Payload Path"
+        },
+        "quality_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "comparability_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Comparability Flags",
+          "type": "array"
+        }
+      },
+      "title": "SourceMetadata",
+      "type": "object"
+    },
+    "VerificationStatus": {
+      "enum": [
+        "unverified",
+        "verified_primary_match",
+        "verified_with_caveat",
+        "conflicted"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
+  "properties": {
+    "facet": {
+      "title": "Facet",
+      "type": "string"
+    },
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "completed_at": {
+      "title": "Completed At",
+      "type": "string"
+    },
+    "tool_calls_used": {
+      "default": 0,
+      "title": "Tool Calls Used",
+      "type": "integer"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/FindingItem"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "not_found": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Not Found",
+      "type": "array"
+    },
+    "contradictions": {
+      "items": {
+        "$ref": "#/$defs/ContradictionItem"
+      },
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    }
+  },
   "required": [
     "facet",
     "ticker",
-    "completed_at",
-    "tool_calls_used",
-    "findings",
-    "not_found",
-    "contradictions",
     "summary"
   ],
-  "properties": {
-    "facet": {
-      "type": "string",
-      "minLength": 1
-    },
-    "ticker": {
-      "type": "string",
-      "minLength": 1
-    },
-    "completed_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "tool_calls_used": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 20
-    },
-    "findings": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "claim",
-          "data",
-          "source_url",
-          "source_tier",
-          "source_title",
-          "source_date",
-          "retrieval_date",
-          "confidence",
-          "notes"
-        ],
-        "properties": {
-          "claim": {"type": "string", "minLength": 1},
-          "data": {},
-          "source_url": {"type": "string", "format": "uri"},
-          "source_tier": {"type": "integer", "minimum": 1, "maximum": 4},
-          "source_title": {"type": "string", "minLength": 1},
-          "source_date": {
-            "anyOf": [
-              {"type": "string", "format": "date"},
-              {"type": "null"}
-            ]
-          },
-          "retrieval_date": {"type": "string", "format": "date"},
-          "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
-          "notes": {"type": "string"}
-        }
-      }
-    },
-    "not_found": {
-      "type": "array",
-      "items": {"type": "string"}
-    },
-    "contradictions": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "topic",
-          "source_a",
-          "source_a_claim",
-          "source_b",
-          "source_b_claim",
-          "notes"
-        ],
-        "properties": {
-          "topic": {"type": "string", "minLength": 1},
-          "source_a": {"type": "string", "format": "uri"},
-          "source_a_claim": {"type": "string", "minLength": 1},
-          "source_b": {"type": "string", "format": "uri"},
-          "source_b_claim": {"type": "string", "minLength": 1},
-          "notes": {"type": "string"}
-        }
-      }
-    },
-    "summary": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
+  "title": "SubagentFindings",
+  "type": "object"
 }

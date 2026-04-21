@@ -1,61 +1,117 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://azimuth.local/schemas/red_team_verdict.schema.json",
-  "title": "RedTeamVerdict",
-  "type": "object",
+  "$defs": {
+    "ChallengeItem": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge": {
+          "title": "Challenge",
+          "type": "string"
+        },
+        "evidence_or_logic": {
+          "title": "Evidence Or Logic",
+          "type": "string"
+        },
+        "where_report_fails": {
+          "title": "Where Report Fails",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "material",
+            "minor"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge",
+        "evidence_or_logic",
+        "where_report_fails",
+        "severity"
+      ],
+      "title": "ChallengeItem",
+      "type": "object"
+    },
+    "RedTeamVerdictType": {
+      "enum": [
+        "strong_counter_case",
+        "weak_counter_case",
+        "covered_ground"
+      ],
+      "title": "RedTeamVerdictType",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
+  "properties": {
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "report_rating": {
+      "enum": [
+        "Buy",
+        "Hold",
+        "Sell"
+      ],
+      "title": "Report Rating",
+      "type": "string"
+    },
+    "red_team_counter_rating": {
+      "enum": [
+        "Buy",
+        "Hold",
+        "Sell"
+      ],
+      "title": "Red Team Counter Rating",
+      "type": "string"
+    },
+    "verdict": {
+      "$ref": "#/$defs/RedTeamVerdictType"
+    },
+    "counter_thesis": {
+      "title": "Counter Thesis",
+      "type": "string"
+    },
+    "three_strongest_challenges": {
+      "items": {
+        "$ref": "#/$defs/ChallengeItem"
+      },
+      "title": "Three Strongest Challenges",
+      "type": "array"
+    },
+    "missed_risks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missed Risks",
+      "type": "array"
+    },
+    "disagreements_with_calculations": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Disagreements With Calculations",
+      "type": "array"
+    },
+    "verdict_reasoning": {
+      "title": "Verdict Reasoning",
+      "type": "string"
+    }
+  },
   "required": [
     "ticker",
     "report_rating",
     "red_team_counter_rating",
     "verdict",
     "counter_thesis",
-    "three_strongest_challenges",
-    "missed_risks",
-    "disagreements_with_calculations",
     "verdict_reasoning"
   ],
-  "properties": {
-    "ticker": {"type": "string", "minLength": 1},
-    "report_rating": {"type": "string", "enum": ["Buy", "Hold", "Sell"]},
-    "red_team_counter_rating": {"type": "string", "enum": ["Buy", "Hold", "Sell"]},
-    "verdict": {
-      "type": "string",
-      "enum": ["strong_counter_case", "weak_counter_case", "covered_ground"]
-    },
-    "counter_thesis": {"type": "string", "minLength": 1},
-    "three_strongest_challenges": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 3,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["challenge", "evidence_or_logic", "where_report_fails", "severity"],
-        "properties": {
-          "challenge": {"type": "string", "minLength": 1},
-          "evidence_or_logic": {"type": "string", "minLength": 1},
-          "where_report_fails": {"type": "string", "minLength": 1},
-          "severity": {"type": "string", "enum": ["critical", "material", "minor"]}
-        }
-      }
-    },
-    "missed_risks": {
-      "type": "array",
-      "items": {"type": "string"}
-    },
-    "disagreements_with_calculations": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["what", "why"],
-        "properties": {
-          "what": {"type": "string", "minLength": 1},
-          "why": {"type": "string", "minLength": 1}
-        }
-      }
-    },
-    "verdict_reasoning": {"type": "string", "minLength": 1}
-  }
+  "title": "RedTeamVerdict",
+  "type": "object"
 }

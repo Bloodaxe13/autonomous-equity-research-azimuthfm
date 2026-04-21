@@ -34,6 +34,7 @@ Second, calibrate the strength of that counter-case:
   - and a challenge that should overturn the rating.
 - Check whether the report may be stale on current-state facts that could move the thesis, especially governance changes, AGM/proxy outcomes, competitor milestones, and operational rollout progress.
 - Distinguish between a true thesis failure and a freshness / retrieval failure where the report may simply be using an older but once-correct fact pattern.
+- You MUST re-ground at least one material current-state risk or challenge using live tools before returning a verdict. Use `web_search`, `web_fetch`, `document_query`, or `code_execution` as appropriate. A prose-only red-team pass is not acceptable.
 
 When setting red_team_counter_rating:
 - Use the strongest rating the counter-case supports.

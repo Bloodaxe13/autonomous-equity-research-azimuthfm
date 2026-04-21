@@ -1,26 +1,51 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://azimuth.local/schemas/task_input.schema.json",
-  "title": "TaskInput",
-  "type": "object",
+  "$defs": {
+    "ReportTier": {
+      "enum": [
+        "initiation",
+        "quarterly",
+        "flash"
+      ],
+      "title": "ReportTier",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
-  "required": [
-    "ticker",
-    "tier",
-    "run_id",
-    "triggering_event",
-    "prior_report"
-  ],
   "properties": {
-    "ticker": {"type": "string", "minLength": 1},
-    "tier": {"type": "string", "enum": ["initiation", "quarterly", "flash"]},
-    "run_id": {"type": "string", "minLength": 1},
-    "triggering_event": {"type": "string", "minLength": 1},
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "tier": {
+      "$ref": "#/$defs/ReportTier"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "triggering_event": {
+      "default": "manual_run",
+      "title": "Triggering Event",
+      "type": "string"
+    },
     "prior_report": {
       "anyOf": [
-        {"type": "object"},
-        {"type": "null"}
-      ]
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prior Report"
     }
-  }
+  },
+  "required": [
+    "ticker",
+    "tier"
+  ],
+  "title": "TaskInput",
+  "type": "object"
 }

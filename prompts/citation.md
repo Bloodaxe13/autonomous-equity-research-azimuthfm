@@ -16,6 +16,35 @@ Produce a fully annotated report with reproducible attribution. Every factual st
 4. If a statement comes from calculation output, cite the underlying source for inputs and include the calculation in the computation log.
 5. If a claim cannot be sourced, list it under `unsourced_claims` rather than guessing.
 6. Preserve markdown structure.
+7. Analytical or evaluative statements still need evidentiary support. If a statement like "risk/reward is broadly fair", "the moat is durable", or "competition is a medium-term risk" cannot be grounded in the supplied findings/computation context, list it under `unsourced_claims` rather than waving it through.
+8. When a statement is supported by multiple findings, prefer the highest-quality source and add additional support only when it materially improves attribution.
+9. Return via `complete_task`.
+
+## Runtime context
+
+`Report`
+```json
+{{.Report}}
+```
+
+`FindingsIndex`
+```json
+{{.FindingsIndex}}
+```
+
+`ComputationLog`
+```json
+{{.ComputationLog}}
+```
+
+## Attribution procedure
+
+1. Read the report and break it into factual / numerical / evaluative claims.
+2. Use `FindingsIndex` to source narrative claims and underlying factual assertions.
+3. Use `ComputationLog` to source calculated outputs and their inputs.
+4. If `Report` is supplied as a structured FinalReport object rather than plain markdown, treat `header_block` and `sections` in canonical report order as the text to annotate.
+5. Preserve strong claims only when they can be attributed. If a claim cannot be tied back to findings or computation inputs, put it in `unsourced_claims`.
+6. Do not invent bibliography entries or computation steps.
 
 ## Output contract
 

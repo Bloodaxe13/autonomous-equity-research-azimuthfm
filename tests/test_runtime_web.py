@@ -1,5 +1,3 @@
-import fitz
-
 from src.tools.runtime_web import HttpFetchAdapter
 
 
@@ -25,49 +23,39 @@ def test_http_fetch_adapter_returns_structured_error_on_connect_failure(monkeypa
     assert 'dns failed' in result.text
 
 
-def test_http_fetch_adapter_extracts_text_from_pdf(monkeypatch):
+def test_http_fetch_adapter_rejects_pdf_and_directs_caller_to_document_query(monkeypatch):
     adapter = HttpFetchAdapter()
-
-    doc = fitz.open()
-    page = doc.new_page()
-    page.insert_text((72, 72), 'Revenue 105.3 Cash 233.0 Annual Report')
-    pdf_bytes = doc.tobytes()
-    doc.close()
 
     def fake_get(*args, **kwargs):
         return _FakeResponse(
             url='https://example.test/report.pdf',
             status_code=200,
             headers={'content-type': 'application/pdf'},
-            content=pdf_bytes,
+            content=b'%PDF-1.7 fake bytes',
         )
 
     monkeypatch.setattr('src.tools.runtime_web.httpx.get', fake_get)
     result = adapter.fetch('https://example.test/report.pdf')
 
-    assert result.status_code == 200
+    assert result.status_code == 415
     assert result.content_type.startswith('application/pdf')
-    assert 'Revenue 105.3 Cash 233.0 Annual Report' in result.text
+    assert 'document_query' in result.text
+    assert 'deprecated' in result.text.lower()
 
 
-def test_http_fetch_adapter_marks_low_quality_pdf_extraction(monkeypatch):
+def test_http_fetch_adapter_rejects_pdf_by_content_type_even_without_pdf_suffix(monkeypatch):
     adapter = HttpFetchAdapter()
-
-    doc = fitz.open()
-    doc.new_page()
-    pdf_bytes = doc.tobytes()
-    doc.close()
 
     def fake_get(*args, **kwargs):
         return _FakeResponse(
-            url='https://example.test/scan.pdf',
+            url='https://example.test/download?id=123',
             status_code=200,
             headers={'content-type': 'application/pdf'},
-            content=pdf_bytes,
+            content=b'%PDF-1.7 fake bytes',
         )
 
     monkeypatch.setattr('src.tools.runtime_web.httpx.get', fake_get)
-    result = adapter.fetch('https://example.test/scan.pdf')
+    result = adapter.fetch('https://example.test/download?id=123')
 
-    assert result.status_code == 200
-    assert 'PDF_EXTRACTION_QUALITY: low' in result.text
+    assert result.status_code == 415
+    assert 'document_query' in result.text

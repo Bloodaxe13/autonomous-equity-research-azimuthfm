@@ -1,30 +1,470 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://azimuth.local/schemas/final_report.schema.json",
-  "title": "FinalReport",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "ticker",
-    "tier",
-    "generated_at",
-    "version",
-    "header_block",
-    "sections",
-    "computation_log",
-    "findings_index",
-    "rating",
-    "price_target_aud",
-    "implied_return_pct"
-  ],
-  "properties": {
-    "ticker": {"type": "string", "minLength": 1},
-    "tier": {"type": "string", "enum": ["initiation", "quarterly", "flash"]},
-    "generated_at": {"type": "string", "format": "date-time"},
-    "version": {"type": "string", "minLength": 1},
-    "header_block": {
-      "type": "object",
+  "$defs": {
+    "CanonicalFcfBridge": {
       "additionalProperties": false,
+      "properties": {
+        "npat_aud_m": {
+          "title": "Npat Aud M",
+          "type": "number"
+        },
+        "depreciation_and_amortization_aud_m": {
+          "title": "Depreciation And Amortization Aud M",
+          "type": "number"
+        },
+        "working_capital_outflow_aud_m": {
+          "title": "Working Capital Outflow Aud M",
+          "type": "number"
+        },
+        "lease_cash_outflow_aud_m": {
+          "title": "Lease Cash Outflow Aud M",
+          "type": "number"
+        },
+        "capex_aud_m": {
+          "title": "Capex Aud M",
+          "type": "number"
+        },
+        "equity_free_cash_flow_aud_m": {
+          "title": "Equity Free Cash Flow Aud M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "npat_aud_m",
+        "depreciation_and_amortization_aud_m",
+        "working_capital_outflow_aud_m",
+        "lease_cash_outflow_aud_m",
+        "capex_aud_m",
+        "equity_free_cash_flow_aud_m"
+      ],
+      "title": "CanonicalFcfBridge",
+      "type": "object"
+    },
+    "CanonicalPeerRow": {
+      "additionalProperties": false,
+      "properties": {
+        "peer_name": {
+          "title": "Peer Name",
+          "type": "string"
+        },
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "business_fit": {
+          "title": "Business Fit",
+          "type": "string"
+        },
+        "pe_ntm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pe Ntm"
+        },
+        "ev_revenue_ntm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ev Revenue Ntm"
+        },
+        "ev_ebitda_ntm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ev Ebitda Ntm"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "peer_name",
+        "ticker",
+        "business_fit"
+      ],
+      "title": "CanonicalPeerRow",
+      "type": "object"
+    },
+    "CanonicalPipelineOptionValue": {
+      "additionalProperties": false,
+      "properties": {
+        "methodology": {
+          "title": "Methodology",
+          "type": "string"
+        },
+        "probability_weighted_value_aud_m": {
+          "title": "Probability Weighted Value Aud M",
+          "type": "number"
+        },
+        "included_in_price_target": {
+          "title": "Included In Price Target",
+          "type": "boolean"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "methodology",
+        "probability_weighted_value_aud_m",
+        "included_in_price_target",
+        "rationale"
+      ],
+      "title": "CanonicalPipelineOptionValue",
+      "type": "object"
+    },
+    "CanonicalScenarioRow": {
+      "additionalProperties": false,
+      "properties": {
+        "scenario": {
+          "title": "Scenario",
+          "type": "string"
+        },
+        "probability_pct": {
+          "title": "Probability Pct",
+          "type": "number"
+        },
+        "price_target_aud": {
+          "title": "Price Target Aud",
+          "type": "number"
+        },
+        "thesis": {
+          "title": "Thesis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario",
+        "probability_pct",
+        "price_target_aud",
+        "thesis"
+      ],
+      "title": "CanonicalScenarioRow",
+      "type": "object"
+    },
+    "CanonicalSensitivityRow": {
+      "additionalProperties": false,
+      "properties": {
+        "wacc_pct": {
+          "title": "Wacc Pct",
+          "type": "number"
+        },
+        "terminal_growth_pct": {
+          "title": "Terminal Growth Pct",
+          "type": "number"
+        },
+        "price_target_aud": {
+          "title": "Price Target Aud",
+          "type": "number"
+        }
+      },
+      "required": [
+        "wacc_pct",
+        "terminal_growth_pct",
+        "price_target_aud"
+      ],
+      "title": "CanonicalSensitivityRow",
+      "type": "object"
+    },
+    "CanonicalSensitivityTable": {
+      "additionalProperties": false,
+      "properties": {
+        "base_wacc_pct": {
+          "title": "Base Wacc Pct",
+          "type": "number"
+        },
+        "base_terminal_growth_pct": {
+          "title": "Base Terminal Growth Pct",
+          "type": "number"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/CanonicalSensitivityRow"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "base_wacc_pct",
+        "base_terminal_growth_pct"
+      ],
+      "title": "CanonicalSensitivityTable",
+      "type": "object"
+    },
+    "CanonicalValuationInputs": {
+      "additionalProperties": false,
+      "properties": {
+        "reconciliation_status": {
+          "enum": [
+            "resolved",
+            "unresolved"
+          ],
+          "title": "Reconciliation Status",
+          "type": "string"
+        },
+        "fcf_bridge": {
+          "$ref": "#/$defs/CanonicalFcfBridge"
+        },
+        "peer_table": {
+          "items": {
+            "$ref": "#/$defs/CanonicalPeerRow"
+          },
+          "title": "Peer Table",
+          "type": "array"
+        },
+        "scenario_analysis": {
+          "items": {
+            "$ref": "#/$defs/CanonicalScenarioRow"
+          },
+          "title": "Scenario Analysis",
+          "type": "array"
+        },
+        "pipeline_option_value": {
+          "$ref": "#/$defs/CanonicalPipelineOptionValue"
+        },
+        "sensitivity_table": {
+          "$ref": "#/$defs/CanonicalSensitivityTable"
+        }
+      },
+      "required": [
+        "reconciliation_status",
+        "fcf_bridge",
+        "peer_table",
+        "scenario_analysis",
+        "pipeline_option_value",
+        "sensitivity_table"
+      ],
+      "title": "CanonicalValuationInputs",
+      "type": "object"
+    },
+    "ComputationLogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "formula": {
+          "title": "Formula",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "title": "Inputs",
+          "type": "object"
+        },
+        "output": {
+          "default": null,
+          "title": "Output"
+        }
+      },
+      "required": [
+        "n",
+        "what",
+        "formula"
+      ],
+      "title": "ComputationLogEntry",
+      "type": "object"
+    },
+    "FindingConfidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "FindingConfidence",
+      "type": "string"
+    },
+    "FindingIndexItem": {
+      "additionalProperties": false,
+      "properties": {
+        "facet": {
+          "title": "Facet",
+          "type": "string"
+        },
+        "claim": {
+          "title": "Claim",
+          "type": "string"
+        },
+        "source_url": {
+          "title": "Source Url",
+          "type": "string"
+        },
+        "source_title": {
+          "title": "Source Title",
+          "type": "string"
+        },
+        "source_tier": {
+          "title": "Source Tier",
+          "type": "integer"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "data_as_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data As Of"
+        },
+        "period_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Label"
+        },
+        "confidence": {
+          "$ref": "#/$defs/FindingConfidence"
+        },
+        "source_metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "facet",
+        "claim",
+        "source_url",
+        "source_title",
+        "source_tier",
+        "confidence"
+      ],
+      "title": "FindingIndexItem",
+      "type": "object"
+    },
+    "HeaderBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "ticker": {
+          "title": "Ticker",
+          "type": "string"
+        },
+        "company_name": {
+          "title": "Company Name",
+          "type": "string"
+        },
+        "report_title": {
+          "title": "Report Title",
+          "type": "string"
+        },
+        "report_date": {
+          "title": "Report Date",
+          "type": "string"
+        },
+        "report_type": {
+          "$ref": "#/$defs/ReportTier"
+        },
+        "rating": {
+          "enum": [
+            "Buy",
+            "Hold",
+            "Sell"
+          ],
+          "title": "Rating",
+          "type": "string"
+        },
+        "price_target_aud": {
+          "title": "Price Target Aud",
+          "type": "number"
+        },
+        "current_price_aud": {
+          "title": "Current Price Aud",
+          "type": "number"
+        },
+        "implied_return_pct": {
+          "title": "Implied Return Pct",
+          "type": "number"
+        },
+        "market_cap_aud_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Market Cap Aud M"
+        },
+        "net_cash_aud_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Net Cash Aud M"
+        },
+        "primary_valuation_method": {
+          "title": "Primary Valuation Method",
+          "type": "string"
+        },
+        "valuation_summary": {
+          "title": "Valuation Summary",
+          "type": "string"
+        },
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        }
+      },
       "required": [
         "ticker",
         "company_name",
@@ -39,26 +479,53 @@
         "valuation_summary",
         "generated_at"
       ],
-      "properties": {
-        "ticker": {"type": "string", "minLength": 1},
-        "company_name": {"type": "string", "minLength": 1},
-        "report_title": {"type": "string", "minLength": 1},
-        "report_date": {"type": "string", "format": "date"},
-        "report_type": {"type": "string", "enum": ["initiation", "quarterly", "flash"]},
-        "rating": {"type": "string", "enum": ["Buy", "Hold", "Sell"]},
-        "price_target_aud": {"type": "number"},
-        "current_price_aud": {"type": "number", "exclusiveMinimum": 0},
-        "implied_return_pct": {"type": "number"},
-        "market_cap_aud_m": {"type": ["number", "null"]},
-        "net_cash_aud_m": {"type": ["number", "null"]},
-        "primary_valuation_method": {"type": "string", "minLength": 1},
-        "valuation_summary": {"type": "string", "minLength": 1},
-        "generated_at": {"type": "string", "format": "date-time"}
-      }
+      "title": "HeaderBlock",
+      "type": "object"
     },
-    "sections": {
-      "type": "object",
+    "ReportSections": {
       "additionalProperties": false,
+      "properties": {
+        "investment_thesis": {
+          "title": "Investment Thesis",
+          "type": "string"
+        },
+        "business_description": {
+          "title": "Business Description",
+          "type": "string"
+        },
+        "industry_competitive": {
+          "title": "Industry Competitive",
+          "type": "string"
+        },
+        "financial_analysis": {
+          "title": "Financial Analysis",
+          "type": "string"
+        },
+        "forecasts": {
+          "title": "Forecasts",
+          "type": "string"
+        },
+        "valuation": {
+          "title": "Valuation",
+          "type": "string"
+        },
+        "catalysts": {
+          "title": "Catalysts",
+          "type": "string"
+        },
+        "risks": {
+          "title": "Risks",
+          "type": "string"
+        },
+        "esg_governance": {
+          "title": "Esg Governance",
+          "type": "string"
+        },
+        "appendix": {
+          "title": "Appendix",
+          "type": "string"
+        }
+      },
       "required": [
         "investment_thesis",
         "business_description",
@@ -71,59 +538,177 @@
         "esg_governance",
         "appendix"
       ],
+      "title": "ReportSections",
+      "type": "object"
+    },
+    "ReportTier": {
+      "enum": [
+        "initiation",
+        "quarterly",
+        "flash"
+      ],
+      "title": "ReportTier",
+      "type": "string"
+    },
+    "SourceAuthorityClass": {
+      "enum": [
+        "primary_truth",
+        "trusted_structured_secondary",
+        "narrative_secondary",
+        "low_trust_tertiary"
+      ],
+      "title": "SourceAuthorityClass",
+      "type": "string"
+    },
+    "SourceMetadata": {
+      "additionalProperties": false,
       "properties": {
-        "investment_thesis": {"type": "string"},
-        "business_description": {"type": "string"},
-        "industry_competitive": {"type": "string"},
-        "financial_analysis": {"type": "string"},
-        "forecasts": {"type": "string"},
-        "valuation": {"type": "string"},
-        "catalysts": {"type": "string"},
-        "risks": {"type": "string"},
-        "esg_governance": {"type": "string"},
-        "appendix": {
-          "type": "string",
-          "allOf": [
-            {"pattern": "Sources reviewed"},
-            {"pattern": "Items not found"},
-            {"pattern": "Computation notes"}
-          ]
+        "authority_class": {
+          "$ref": "#/$defs/SourceAuthorityClass",
+          "default": "primary_truth"
+        },
+        "source_family": {
+          "default": "company_primary",
+          "title": "Source Family",
+          "type": "string"
+        },
+        "source_type": {
+          "default": "filing",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "origin": {
+          "default": "direct",
+          "title": "Origin",
+          "type": "string"
+        },
+        "verification_status": {
+          "$ref": "#/$defs/VerificationStatus",
+          "default": "unverified"
+        },
+        "captured_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Captured At"
+        },
+        "raw_payload_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Payload Path"
+        },
+        "quality_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "comparability_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Comparability Flags",
+          "type": "array"
         }
-      }
+      },
+      "title": "SourceMetadata",
+      "type": "object"
+    },
+    "VerificationStatus": {
+      "enum": [
+        "unverified",
+        "verified_primary_match",
+        "verified_with_caveat",
+        "conflicted"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "tier": {
+      "$ref": "#/$defs/ReportTier"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "version": {
+      "default": "0.1.0",
+      "title": "Version",
+      "type": "string"
+    },
+    "header_block": {
+      "$ref": "#/$defs/HeaderBlock"
+    },
+    "sections": {
+      "$ref": "#/$defs/ReportSections"
+    },
+    "canonical_valuation_inputs": {
+      "$ref": "#/$defs/CanonicalValuationInputs"
     },
     "computation_log": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["n", "what", "formula", "inputs", "output"],
-        "properties": {
-          "n": {"type": "integer", "minimum": 1},
-          "what": {"type": "string", "minLength": 1},
-          "formula": {"type": "string", "minLength": 1},
-          "inputs": {"type": "object"},
-          "output": {}
-        }
-      }
+        "$ref": "#/$defs/ComputationLogEntry"
+      },
+      "title": "Computation Log",
+      "type": "array"
     },
     "findings_index": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["facet", "claim", "source_url", "source_title", "source_tier", "confidence"],
-        "properties": {
-          "facet": {"type": "string", "minLength": 1},
-          "claim": {"type": "string", "minLength": 1},
-          "source_url": {"type": "string", "minLength": 1},
-          "source_title": {"type": "string", "minLength": 1},
-          "source_tier": {"type": "integer", "minimum": 1, "maximum": 4},
-          "confidence": {"type": "string", "enum": ["high", "medium", "low"]}
-        }
-      }
+        "$ref": "#/$defs/FindingIndexItem"
+      },
+      "title": "Findings Index",
+      "type": "array"
     },
-    "rating": {"type": "string", "enum": ["Buy", "Hold", "Sell"]},
-    "price_target_aud": {"type": "number"},
-    "implied_return_pct": {"type": "number"}
-  }
+    "rating": {
+      "enum": [
+        "Buy",
+        "Hold",
+        "Sell"
+      ],
+      "title": "Rating",
+      "type": "string"
+    },
+    "price_target_aud": {
+      "title": "Price Target Aud",
+      "type": "number"
+    },
+    "implied_return_pct": {
+      "title": "Implied Return Pct",
+      "type": "number"
+    }
+  },
+  "required": [
+    "ticker",
+    "tier",
+    "generated_at",
+    "header_block",
+    "sections",
+    "canonical_valuation_inputs",
+    "rating",
+    "price_target_aud",
+    "implied_return_pct"
+  ],
+  "title": "FinalReport",
+  "type": "object"
 }

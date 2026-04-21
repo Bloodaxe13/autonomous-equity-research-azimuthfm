@@ -1,51 +1,111 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://azimuth.local/schemas/citation_output.schema.json",
-  "title": "CitationOutput",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "annotated_report",
-    "source_list",
-    "computation_log",
-    "unsourced_claims"
-  ],
-  "properties": {
-    "annotated_report": {"type": "string", "minLength": 1},
-    "source_list": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["n", "title", "url", "retrieval_date", "source_tier", "claim_refs"],
-        "properties": {
-          "n": {"type": "integer", "minimum": 1},
-          "title": {"type": "string", "minLength": 1},
-          "url": {"type": "string", "format": "uri"},
-          "retrieval_date": {"type": "string", "format": "date"},
-          "source_tier": {"type": "integer", "minimum": 1, "maximum": 4},
-          "claim_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  "$defs": {
+    "CitationSource": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "retrieval_date": {
+          "title": "Retrieval Date",
+          "type": "string"
+        },
+        "source_tier": {
+          "title": "Source Tier",
+          "type": "integer"
+        },
+        "claim_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Refs",
+          "type": "array"
         }
-      }
+      },
+      "required": [
+        "n",
+        "title",
+        "url",
+        "retrieval_date",
+        "source_tier"
+      ],
+      "title": "CitationSource",
+      "type": "object"
+    },
+    "ComputationLogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "formula": {
+          "title": "Formula",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "title": "Inputs",
+          "type": "object"
+        },
+        "output": {
+          "default": null,
+          "title": "Output"
+        }
+      },
+      "required": [
+        "n",
+        "what",
+        "formula"
+      ],
+      "title": "ComputationLogEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "annotated_report": {
+      "title": "Annotated Report",
+      "type": "string"
+    },
+    "source_list": {
+      "items": {
+        "$ref": "#/$defs/CitationSource"
+      },
+      "title": "Source List",
+      "type": "array"
     },
     "computation_log": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["n", "what", "formula", "inputs", "output"],
-        "properties": {
-          "n": {"type": "integer", "minimum": 1},
-          "what": {"type": "string", "minLength": 1},
-          "formula": {"type": "string", "minLength": 1},
-          "inputs": {"type": "object"},
-          "output": {}
-        }
-      }
+        "$ref": "#/$defs/ComputationLogEntry"
+      },
+      "title": "Computation Log",
+      "type": "array"
     },
     "unsourced_claims": {
-      "type": "array",
-      "items": {"type": "string"}
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsourced Claims",
+      "type": "array"
     }
-  }
+  },
+  "required": [
+    "annotated_report"
+  ],
+  "title": "CitationOutput",
+  "type": "object"
 }

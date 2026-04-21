@@ -24,6 +24,17 @@ def _runtime(tmp_path: Path, scripted_responses: list[FakeResponse]) -> Autonomo
     )
 
 
+def _minimal_brief(facet: str, ticker: str = 'ACME') -> dict:
+    return {
+        'facet': facet,
+        'ticker': ticker,
+        'objective': f'Investigate {facet} for {ticker}.',
+        'required_fields': [],
+        'source_guidance': 'Prefer primary company and regulator sources.',
+        'task_boundaries': 'Return findings only; do not draft report prose.',
+    }
+
+
 def test_invalid_lead_output_raises_and_persists_restart_artifacts(tmp_path: Path):
     runtime = _runtime(tmp_path, [
         FakeResponse({'id': 'lead_1', 'output': [{'type': 'function_call', 'name': 'complete_task', 'call_id': 'lead_done', 'arguments': '{"payload": {"ticker": "ACME", "status": "partial only"}}'}]})
@@ -47,7 +58,7 @@ def test_incomplete_subagent_persists_raw_failure_artifacts(tmp_path: Path):
     ])
     runtime.subagent_max_turns = 1
 
-    runtime.run_subagent({'facet': 'business_model', 'ticker': 'ACME'}, run_id='run-1')
+    runtime.run_subagent(_minimal_brief('business_model'), run_id='run-1')
 
     stage_dir = tmp_path / 'memory' / 'run-1' / 'agent_artifacts' / 'subagent_business_model'
     assert (stage_dir / 'raw_api_payloads.json').exists()

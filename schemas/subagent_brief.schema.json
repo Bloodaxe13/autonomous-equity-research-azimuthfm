@@ -1,70 +1,57 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://azimuth.local/schemas/subagent_brief.schema.json",
-  "title": "SubagentBrief",
-  "type": "object",
   "additionalProperties": false,
+  "properties": {
+    "facet": {
+      "title": "Facet",
+      "type": "string"
+    },
+    "ticker": {
+      "title": "Ticker",
+      "type": "string"
+    },
+    "objective": {
+      "title": "Objective",
+      "type": "string"
+    },
+    "required_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Fields",
+      "type": "array"
+    },
+    "source_guidance": {
+      "title": "Source Guidance",
+      "type": "string"
+    },
+    "task_boundaries": {
+      "title": "Task Boundaries",
+      "type": "string"
+    },
+    "research_budget_hint": {
+      "default": 8,
+      "title": "Research Budget Hint",
+      "type": "integer"
+    },
+    "time_bounds": {
+      "default": "current",
+      "title": "Time Bounds",
+      "type": "string"
+    },
+    "context_from_prior_waves": {
+      "default": "",
+      "title": "Context From Prior Waves",
+      "type": "string"
+    }
+  },
   "required": [
     "facet",
     "ticker",
     "objective",
     "required_fields",
     "source_guidance",
-    "task_boundaries",
-    "research_budget_hint",
-    "time_bounds"
+    "task_boundaries"
   ],
-  "properties": {
-    "facet": {
-      "type": "string",
-      "enum": [
-        "business_model",
-        "industry_competitive",
-        "historical_financials",
-        "forecasts_consensus",
-        "news_catalysts",
-        "peers_ownership",
-        "governance_management",
-        "resources_reserves",
-        "trial_pipeline",
-        "contract_book",
-        "nav_drivers"
-      ]
-    },
-    "ticker": {
-      "type": "string",
-      "minLength": 1
-    },
-    "objective": {
-      "type": "string",
-      "minLength": 1
-    },
-    "required_fields": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "source_guidance": {
-      "type": "string",
-      "minLength": 1
-    },
-    "task_boundaries": {
-      "type": "string",
-      "minLength": 1
-    },
-    "research_budget_hint": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 20
-    },
-    "time_bounds": {
-      "type": "string",
-      "minLength": 1
-    },
-    "context_from_prior_waves": {
-      "type": "string"
-    }
-  }
+  "title": "SubagentBrief",
+  "type": "object"
 }

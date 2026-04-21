@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
+from src.contracts_runtime import SubagentBrief
 from src.memory.json_store_runtime import JsonMemoryStore
 from src.tools.code_execution_runtime import CodeExecutionTool
 from src.tools.runtime_web import WebFetchTool, WebSearchTool
@@ -548,8 +549,10 @@ def build_default_agent_tools(
             parameters={
                 "type": "object",
                 "properties": {
-                    "brief": {"type": "object"},
+                    "brief": SubagentBrief.model_json_schema(),
                 },
+                "required": ["brief"],
+                "additionalProperties": False,
             },
             handler=_run_subagent,
         ),

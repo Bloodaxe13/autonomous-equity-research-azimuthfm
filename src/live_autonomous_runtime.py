@@ -15,12 +15,14 @@ from src.contracts_runtime import (
     RedTeamVerdict,
     ReportPacket,
     SourceMetadata,
+    SubagentBrief,
     SubagentFindings,
     TaskInput,
 )
 from src.memory.json_store_runtime import JsonMemoryStore
 from src.responses_agent_runtime import AgentLoopIncomplete, AgentRunContext, ResponsesAgentLoop, _tool_counts, build_default_agent_tools
 from src.structured_secondary import build_structured_secondary_context
+from src.deterministic_lead_context import build_deterministic_lead_context
 from src.tools.code_execution_runtime import CodeExecutionTool
 from src.tools.runtime_documents import OpenAIDocumentToolkit
 from src.tools.runtime_web import WebFetchTool, WebSearchTool
@@ -67,14 +69,7 @@ class AutonomousEquityResearchRuntime:
         self.prompt_dir = self.repo_root / "prompts"
 
     def run(self, task: TaskInput) -> ReportPacket:
-        lead_recovered = False
-        try:
-            report = self.run_lead(task)
-        except PipelineStageError as exc:
-            if exc.stage != 'lead':
-                raise
-            report = self._build_degraded_final_report(task, exc)
-            lead_recovered = True
+        report = self.run_lead(task)
         self._snapshot_stage_attempt(task.run_id, 'lead', 0)
         self.memory_store.write(task.run_id, 'draft_report', report.model_dump(mode='json'))
         self.memory_store.write(task.run_id, 'computation_log', [entry.model_dump(mode='json') for entry in report.computation_log])
@@ -86,7 +81,7 @@ class AutonomousEquityResearchRuntime:
                 'attempt': 0,
                 'rating': report.rating,
                 'price_target_aud': report.price_target_aud,
-                'lead_recovered': lead_recovered,
+                'lead_recovered': False,
             },
         )
 
@@ -217,6 +212,7 @@ class AutonomousEquityResearchRuntime:
         )
 
     def run_subagent(self, brief: dict[str, Any], *, run_id: str) -> SubagentFindings:
+        brief = SubagentBrief.model_validate(brief).model_dump(mode='json')
         document_query_tool = self._document_query_callback if self.document_toolkit is not None else None
         tools = build_default_agent_tools(
             web_search=self.web_search,
@@ -233,9 +229,10 @@ class AutonomousEquityResearchRuntime:
             max_turns=self.subagent_max_turns,
             max_output_tokens=self.subagent_max_output_tokens,
         )
+        prompt_path = self._build_subagent_prompt_path(brief=brief, run_id=run_id)
         try:
             result = executor.run_prompt_file(
-                self.prompt_dir / "research_subagent.md",
+                prompt_path,
                 user_input={"task_brief": brief},
                 prompt_context={"TaskBrief": json.dumps(brief, indent=2, ensure_ascii=False)},
                 tool_names=[name for name in ["web_search", "web_fetch", "document_query", "complete_task"] if name in tools],
@@ -260,7 +257,10 @@ class AutonomousEquityResearchRuntime:
 
     def run_lead(self, task: TaskInput) -> FinalReport:
         structured_secondary = build_structured_secondary_context(task.ticker)
+        deterministic_lead_context = build_deterministic_lead_context(task.ticker)
         self.memory_store.write(task.run_id, 'structured_secondary_context', structured_secondary)
+        self.memory_store.write(task.run_id, 'deterministic_lead_context', deterministic_lead_context)
+        self._enforce_deterministic_market_data(task=task, deterministic_lead_context=deterministic_lead_context)
         document_query_tool = self._document_query_callback if self.document_toolkit is not None else None
         tools = build_default_agent_tools(
             web_search=self.web_search,
@@ -287,10 +287,12 @@ class AutonomousEquityResearchRuntime:
                 "triggering_event": task.triggering_event,
                 "prior_report": task.prior_report,
                 "structured_secondary_context": structured_secondary,
+                "deterministic_lead_context": deterministic_lead_context,
             },
             prompt_context={
                 "TaskJSON": task.model_dump(mode="json"),
                 "StructuredSecondaryContext": json.dumps(structured_secondary, indent=2, ensure_ascii=False),
+                "DeterministicLeadContext": json.dumps(deterministic_lead_context, indent=2, ensure_ascii=False),
             },
             tool_names=[name for name in ["run_subagent", "document_query", "code_execution", "web_search", "web_fetch", "memory_write", "memory_read", "complete_task"] if name in tools],
             run_id=task.run_id,
@@ -312,6 +314,7 @@ class AutonomousEquityResearchRuntime:
                 artifact_dir=stage_dir,
                 message=f"Lead stage failed strict FinalReport validation: {exc}",
             )
+        self._enforce_lead_quality_gates(task=task, report=report, stage_dir=stage_dir, deterministic_lead_context=deterministic_lead_context)
         (stage_dir / 'parsed_output.json').write_text(json.dumps(report.model_dump(mode='json'), indent=2, ensure_ascii=False, default=str), encoding='utf-8')
         return report
 
@@ -321,6 +324,7 @@ class AutonomousEquityResearchRuntime:
             web_fetch=self.web_fetch,
             code_execution=self.code_execution,
             memory_store=self.memory_store,
+            document_query_tool=self._document_query_callback if self.document_toolkit is not None else None,
         )
         tools['complete_task'].parameters = RedTeamVerdict.model_json_schema()
         executor = ResponsesAgentLoop(
@@ -334,14 +338,21 @@ class AutonomousEquityResearchRuntime:
             self.prompt_dir / "red_team.md",
             user_input={"report": report},
             prompt_context={"Report": report},
-            tool_names=["complete_task"],
+            tool_names=[name for name in ["web_search", "web_fetch", "document_query", "code_execution", "complete_task"] if name in tools],
             run_id=run_id,
         )
         stage_dir = self._persist_agent_artifacts(run_id, "red_team", result, result.final_output)
         try:
             verdict = RedTeamVerdict.model_validate(result.final_output)
         except Exception as exc:
-            verdict = self._build_degraded_red_team_verdict(report=report, stage_dir=stage_dir, error=exc)
+            self._persist_validation_failure(run_id, "red_team", stage_dir, result, exc)
+            raise PipelineStageError(
+                run_id=run_id,
+                stage='red_team',
+                artifact_dir=stage_dir,
+                message=f'Red-team stage failed strict RedTeamVerdict validation: {exc}',
+            )
+        self._enforce_red_team_grounding(run_id=run_id, stage_dir=stage_dir, result=result)
         (stage_dir / 'parsed_output.json').write_text(json.dumps(verdict.model_dump(mode='json'), indent=2, ensure_ascii=False, default=str), encoding='utf-8')
         return verdict
 
@@ -371,14 +382,248 @@ class AutonomousEquityResearchRuntime:
         try:
             citation = CitationOutput.model_validate(result.final_output)
         except Exception as exc:
-            citation = self._build_degraded_citation_output(report=report, stage_dir=stage_dir, error=exc, raw_output=result.final_output)
+            self._persist_validation_failure(run_id, "citation", stage_dir, result, exc)
+            raise PipelineStageError(
+                run_id=run_id,
+                stage='citation',
+                artifact_dir=stage_dir,
+                message=f'Citation stage failed strict CitationOutput validation: {exc}',
+            )
         (stage_dir / 'parsed_output.json').write_text(json.dumps(citation.model_dump(mode='json'), indent=2, ensure_ascii=False, default=str), encoding='utf-8')
         return citation
+
+    def _enforce_deterministic_market_data(self, *, task: TaskInput, deterministic_lead_context: dict[str, Any]) -> None:
+        status = str(deterministic_lead_context.get('market_data_status') or '').lower()
+        stage_dir = Path(self.memory_store.root) / task.run_id / 'agent_artifacts' / 'lead'
+        if status == 'conflicted' or bool(deterministic_lead_context.get('market_data_conflicted')):
+            conflicts = deterministic_lead_context.get('conflicts') or []
+            self._raise_lead_gate(
+                task=task,
+                stage_dir=stage_dir,
+                message=f"Lead aborted: deterministic market data conflict requires bounded reconciliation before valuation/header write. {conflicts}",
+            )
+        if not deterministic_lead_context.get('has_primary_market_snapshot'):
+            self._raise_lead_gate(
+                task=task,
+                stage_dir=stage_dir,
+                message='Lead aborted: deterministic market data unavailable for required quote/reference fields.',
+            )
+
+    def _enforce_lead_quality_gates(self, *, task: TaskInput, report: FinalReport, stage_dir: Path, deterministic_lead_context: dict[str, Any]) -> None:
+        subagent_findings = [
+            SubagentFindings.model_validate(item)
+            for item in self.memory_store.read(task.run_id, 'findings_wave_1', [])
+            if isinstance(item, dict)
+        ]
+        if task.prior_report is None and not subagent_findings:
+            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: no persisted subagent findings available for freshness/quality verification.')
+        if report.canonical_valuation_inputs.reconciliation_status != 'resolved':
+            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: canonical valuation inputs must be resolved before valuation/header write.')
+        self._require_recent_result(task=task, stage_dir=stage_dir, findings=subagent_findings)
+        self._require_no_unresolved_liquidity_conflict(task=task, stage_dir=stage_dir, findings=subagent_findings)
+        self._require_no_governance_conflict(task=task, stage_dir=stage_dir, findings=subagent_findings)
+        self._require_recent_competitor_context(task=task, report=report, stage_dir=stage_dir, findings=subagent_findings)
+        self._require_knife_edge_language(report=report, task=task, stage_dir=stage_dir)
+        self._require_report_matches_deterministic_market_context(report=report, deterministic_lead_context=deterministic_lead_context, task=task, stage_dir=stage_dir)
+
+    def _raise_lead_gate(self, *, task: TaskInput, stage_dir: Path, message: str) -> None:
+        completed_at = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+        self._persist_gate_failure(
+            run_id=task.run_id,
+            stage='lead',
+            stage_dir=stage_dir,
+            error=message,
+            response_ids=[],
+            tool_counts={},
+            completed_at=completed_at,
+            attempt=0,
+        )
+        (stage_dir / 'raw_api_payloads.json').write_text(json.dumps([], indent=2, ensure_ascii=False), encoding='utf-8')
+        (stage_dir / 'response_ids.json').write_text(json.dumps([], indent=2, ensure_ascii=False), encoding='utf-8')
+        (stage_dir / 'tool_history.json').write_text(json.dumps([], indent=2, ensure_ascii=False), encoding='utf-8')
+        (stage_dir / 'summary.json').write_text(json.dumps({'prompt_path': str(self.prompt_dir / 'lead_analyst.md'), 'turns': 0, 'completed_via_tool': None, 'response_ids': [], 'started_at': '', 'completed_at': completed_at, 'duration_ms': 0, 'tool_counts': {}, 'tool_history_length': 0}, indent=2, ensure_ascii=False), encoding='utf-8')
+        (stage_dir / 'validation_error.json').write_text(json.dumps({'stage': 'lead', 'error': message, 'response_ids': [], 'tool_counts': {}, 'completed_at': completed_at, 'restart_from_stage': 'lead', 'retrigger_agents': ['lead'], 'recommended_context_files': self._recommended_context_files(stage_dir)}, indent=2, ensure_ascii=False), encoding='utf-8')
+        stage_dir.parent.parent.mkdir(parents=True, exist_ok=True)
+        restart_plan = {
+            'run_id': task.run_id,
+            'failed_stage': 'lead',
+            'artifact_dir': str(stage_dir),
+            'response_ids': [],
+            'restart_hint': 'Restart from lead after resolving deterministic data / freshness quality gate.',
+        }
+        (stage_dir.parent.parent / 'restart_plan.json').write_text(json.dumps(restart_plan, indent=2, ensure_ascii=False), encoding='utf-8')
+        raise PipelineStageError(run_id=task.run_id, stage='lead', artifact_dir=stage_dir, message=message)
+
+    def _require_recent_result(self, *, task: TaskInput, stage_dir: Path, findings: list[SubagentFindings]) -> None:
+        if not findings:
+            return
+        result_keywords = ('result', 'quarter', 'half', 'full year', 'annual report', '4e', '4d', 'appendix 4e', 'appendix 4d')
+        candidates = []
+        for packet in findings:
+            for item in packet.findings:
+                haystack = ' '.join(filter(None, [item.claim, item.source_title or '', item.period_label or '', item.notes or ''])).lower()
+                if any(keyword in haystack for keyword in result_keywords):
+                    candidates.append(item)
+        if not candidates:
+            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: latest result document not established in findings before report synthesis.')
+        has_recent = any(self._is_recent_date(item.source_date or item.data_as_of, max_age_days=180) for item in candidates)
+        if not has_recent:
+            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: latest result in findings is stale; refresh current result before report synthesis.')
+
+    def _require_no_unresolved_liquidity_conflict(self, *, task: TaskInput, stage_dir: Path, findings: list[SubagentFindings]) -> None:
+        liquidity_terms = (
+            'cash',
+            'cash and equivalents',
+            'term deposit',
+            'term deposits',
+            'short-term investment',
+            'short-term investments',
+            'net cash',
+            'liquidity',
+            'lease liabilit',
+            'debt',
+        )
+        unresolved_terms = ('unresolved', 'conflict', 'contradiction', 'mismatch', 'cannot reconcile', 'not reconciled')
+        for packet in findings:
+            for item in packet.contradictions:
+                topic = (item.topic or '').lower()
+                notes = (item.notes or '').lower()
+                haystack = ' '.join([topic, notes])
+                if any(term in haystack for term in liquidity_terms) and any(term in haystack for term in unresolved_terms):
+                    self._raise_lead_gate(
+                        task=task,
+                        stage_dir=stage_dir,
+                        message='Lead aborted: unresolved liquidity conflict remains in subagent findings before compressing balance-sheet/liquidity figures.',
+                    )
+
+    def _require_no_governance_conflict(self, *, task: TaskInput, stage_dir: Path, findings: list[SubagentFindings]) -> None:
+        role_terms = ('ceo', 'acting ceo', 'chair', 'board', 'management', 'director')
+        unresolved_terms = ('unresolved', 'conflict', 'mismatch', 'cannot reconcile', 'not reconciled')
+        for packet in findings:
+            for item in packet.contradictions:
+                topic = (item.topic or '').lower()
+                notes = (item.notes or '').lower()
+                haystack = ' '.join([topic, notes])
+                if any(term in haystack for term in role_terms) and any(term in haystack for term in unresolved_terms):
+                    self._raise_lead_gate(
+                        task=task,
+                        stage_dir=stage_dir,
+                        message='Lead aborted: current governance/current-role conflict remains unresolved in subagent findings.',
+                    )
+
+    def _require_recent_competitor_context(self, *, task: TaskInput, report: FinalReport, stage_dir: Path, findings: list[SubagentFindings]) -> None:
+        report_text = ' '.join([
+            report.sections.industry_competitive,
+            report.sections.risks,
+            report.sections.catalysts,
+            report.sections.investment_thesis,
+        ]).lower()
+        if not any(term in report_text for term in ('compet', 'dersimelagon', 'tanabe', 'bitopertin', 'disc medicine')):
+            return
+        competitor_candidates = []
+        for packet in findings:
+            if 'industry' not in packet.facet and 'competition' not in packet.facet and 'peer' not in packet.facet:
+                continue
+            for item in packet.findings:
+                haystack = ' '.join(filter(None, [item.claim, item.source_title or '', item.notes or ''])).lower()
+                if any(term in haystack for term in ('compet', 'dersimelagon', 'tanabe', 'bitopertin', 'disc medicine', 'phase 3', 'nda')):
+                    competitor_candidates.append(item)
+        if competitor_candidates and any(self._is_recent_date(item.source_date or item.data_as_of, max_age_days=180) for item in competitor_candidates):
+            return
+        self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: competitor lane is not sufficiently current for a fast-moving competitive setup.')
+
+    def _require_knife_edge_language(self, *, report: FinalReport, task: TaskInput, stage_dir: Path) -> None:
+        if report.implied_return_pct is None or abs(report.implied_return_pct) > 10:
+            return
+        text = ' '.join([report.sections.investment_thesis, report.sections.valuation]).lower()
+        allowed_phrases = ('risk/reward', 'broadly fair', 'fairly priced', 'knife-edge', 'sensitivity', 'error bar', 'narrow upside')
+        if not any(phrase in text for phrase in allowed_phrases):
+            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: near-spot rating lacks explicit knife-edge / risk-reward framing.')
+
+    def _require_report_matches_deterministic_market_context(self, *, report: FinalReport, deterministic_lead_context: dict[str, Any], task: TaskInput, stage_dir: Path) -> None:
+        snapshot = deterministic_lead_context.get('market_snapshot') or {}
+        expected_price = ((snapshot.get('share_price') or {}).get('value'))
+        expected_mcap = ((snapshot.get('market_cap_aud') or {}).get('value'))
+        if isinstance(expected_price, (int, float)) and abs(report.header_block.current_price_aud - float(expected_price)) > 0.01:
+            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: report current price diverges from deterministic market snapshot.')
+        if isinstance(expected_mcap, (int, float)) and report.header_block.market_cap_aud_m is not None and abs(report.header_block.market_cap_aud_m - float(expected_mcap)) > 0.5:
+            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: report market cap diverges from deterministic market snapshot.')
+
+    @staticmethod
+    def _is_recent_date(value: str | None, *, max_age_days: int) -> bool:
+        if not value:
+            return False
+        try:
+            cleaned = str(value).strip().replace('Z', '+00:00')
+            if len(cleaned) == 10:
+                dt = datetime.fromisoformat(cleaned).replace(tzinfo=timezone.utc)
+            else:
+                dt = datetime.fromisoformat(cleaned)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+            age = datetime.now(timezone.utc) - dt
+            return age.days <= max_age_days
+        except Exception:
+            return False
+
+    def _enforce_red_team_grounding(self, *, run_id: str, stage_dir: Path, result: Any) -> None:
+        grounded_tools = {item.get('tool') for item in result.tool_history if item.get('tool') in {'web_search', 'web_fetch', 'document_query'}}
+        if grounded_tools:
+            return
+        raise PipelineStageError(
+            run_id=run_id,
+            stage='red_team',
+            artifact_dir=stage_dir,
+            message='Red-team must re-ground with live retrieval tools before returning a verdict.',
+        )
 
     def _run_subagent_callback(self, brief: dict[str, Any], context: AgentRunContext) -> Any:
         run_id = context.run_id or "subagent-run"
         packet = self.run_subagent(brief, run_id=run_id)
+        existing_findings = self.memory_store.read(run_id, 'findings_wave_1', [])
+        if not isinstance(existing_findings, list):
+            existing_findings = []
+        existing_findings.append(packet.model_dump(mode='json'))
+        self.memory_store.write(run_id, 'findings_wave_1', existing_findings)
+        existing_briefs = self.memory_store.read(run_id, 'subagent_briefs', [])
+        if not isinstance(existing_briefs, list):
+            existing_briefs = []
+        existing_briefs.append(brief)
+        self.memory_store.write(run_id, 'subagent_briefs', existing_briefs)
         return packet.model_dump(mode="json")
+
+    def _build_subagent_prompt_path(self, *, brief: dict[str, Any], run_id: str) -> Path:
+        raw_facet = str(brief.get('facet') or '').strip()
+        facet = raw_facet if re.fullmatch(r'[a-z0-9_]+', raw_facet) else ''
+        facet_aliases = {
+            'business_model': 'business_model_and_products',
+            'industry_competitive': 'industry_structure_and_competition',
+            'industry_market_and_competition': 'industry_structure_and_competition',
+            'historical_financials_and_capital_structure': 'historical_financials',
+            'forecasts_guidance_and_consensus': 'forecasts_guidance_and_news',
+            'news_catalysts': 'forecasts_guidance_and_news',
+            'newsflow_catalysts_corporate_actions': 'forecasts_guidance_and_news',
+            'ownership_governance_and_management': 'ownership_governance_management',
+            'peers_ownership': 'peers_and_valuation_inputs',
+            'peer_set_and_valuation_inputs': 'peers_and_valuation_inputs',
+        }
+        facet = facet_aliases.get(facet, facet)
+        dedicated_dir = self.prompt_dir / 'dedicated_subagents'
+        base_prompt = dedicated_dir / '_base.md'
+        if facet and base_prompt.exists():
+            lane_prompt = dedicated_dir / f'{facet}.md'
+            if lane_prompt.exists():
+                rendered_dir = Path(self.memory_store.root) / run_id / '_rendered_prompts'
+                rendered_dir.mkdir(parents=True, exist_ok=True)
+                rendered_path = rendered_dir / f'{facet}.md'
+                rendered_path.write_text(
+                    base_prompt.read_text(encoding='utf-8')
+                    + '\n\n'
+                    + lane_prompt.read_text(encoding='utf-8'),
+                    encoding='utf-8',
+                )
+                return rendered_path
+        return self.prompt_dir / 'research_subagent.md'
 
     def _document_query_callback(self, arguments: dict[str, Any], _: AgentRunContext) -> Any:
         if self.document_toolkit is None:
@@ -563,6 +808,34 @@ class AutonomousEquityResearchRuntime:
                 'generated_at': raw_dict.get('header_block', {}).get('generated_at') or datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
             },
             'sections': self._build_degraded_sections(raw_dict, exc),
+            'canonical_valuation_inputs': {
+                'reconciliation_status': 'unresolved',
+                'fcf_bridge': {
+                    'npat_aud_m': 0.0,
+                    'depreciation_and_amortization_aud_m': 0.0,
+                    'working_capital_outflow_aud_m': 0.0,
+                    'lease_cash_outflow_aud_m': 0.0,
+                    'capex_aud_m': 0.0,
+                    'equity_free_cash_flow_aud_m': 0.0,
+                },
+                'peer_table': [],
+                'scenario_analysis': [
+                    {'scenario': 'base', 'probability_pct': 100.0, 'price_target_aud': price_target, 'thesis': 'Degraded fallback generated after lead validation failure.'}
+                ],
+                'pipeline_option_value': {
+                    'methodology': 'Degraded fallback',
+                    'probability_weighted_value_aud_m': 0.0,
+                    'included_in_price_target': False,
+                    'rationale': 'No reliable canonical valuation inputs survived lead validation failure.',
+                },
+                'sensitivity_table': {
+                    'base_wacc_pct': 0.0,
+                    'base_terminal_growth_pct': 0.0,
+                    'rows': [
+                        {'wacc_pct': 0.0, 'terminal_growth_pct': 0.0, 'price_target_aud': price_target}
+                    ],
+                },
+            },
             'computation_log': [],
             'findings_index': self._build_degraded_findings_index(raw_dict, stage_dir, normalization_warnings),
             'rating': rating,

@@ -56,6 +56,7 @@ Last updated: 2026-04-21 04:38 AEST
 - Achieved a successful live OpenAI subagent smoke test on CUV business-model research.
 - Added tests for calculations, MVP runtime, Responses loop, live runtime, payload normalization, tool output limits, web-search annotation parsing, lead-output normalization, parallel tool execution, restartable failure handling, runtime web adapters, structured-secondary loading, and native document/PDF handling.
 - Added bounded red-team reopen flow, fail-closed citation gating, raw failure artifact persistence, structured-secondary scaffolding, current-state retrieval prompt upgrades, confident final-report voice constraints, and Responses-API-native PDF/document querying.
+- Disabled legacy PDF text extraction inside `web_fetch`; PDF URLs now fail closed with a directive to use `document_query`.
 - Completed live red-team stage-boundary replay on saved CUV artifacts using the calibrated red-team prompt, producing a citation-annotated report without rerunning upstream research.
 
 ## Verification completed

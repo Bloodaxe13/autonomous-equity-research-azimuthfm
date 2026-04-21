@@ -188,6 +188,34 @@ RESULT = {
             generated_at=generated_at,
             header_block=header,
             sections=sections,
+            canonical_valuation_inputs={
+                'reconciliation_status': 'resolved',
+                'fcf_bridge': {
+                    'npat_aud_m': 0.0,
+                    'depreciation_and_amortization_aud_m': 0.0,
+                    'working_capital_outflow_aud_m': 0.0,
+                    'lease_cash_outflow_aud_m': 0.0,
+                    'capex_aud_m': 0.0,
+                    'equity_free_cash_flow_aud_m': 0.0,
+                },
+                'peer_table': [],
+                'scenario_analysis': [
+                    {'scenario': 'base', 'probability_pct': 100.0, 'price_target_aud': metrics['price_target_aud'], 'thesis': 'Deterministic MVP base case.'}
+                ],
+                'pipeline_option_value': {
+                    'methodology': 'Deterministic MVP fallback',
+                    'probability_weighted_value_aud_m': 0.0,
+                    'included_in_price_target': False,
+                    'rationale': 'MVP runtime does not model pipeline option value separately.',
+                },
+                'sensitivity_table': {
+                    'base_wacc_pct': 0.0,
+                    'base_terminal_growth_pct': 0.0,
+                    'rows': [
+                        {'wacc_pct': 0.0, 'terminal_growth_pct': 0.0, 'price_target_aud': metrics['price_target_aud']}
+                    ],
+                },
+            },
             computation_log=computation_log,
             findings_index=findings_index,
             rating=rating,
