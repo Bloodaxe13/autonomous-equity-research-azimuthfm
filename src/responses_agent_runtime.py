@@ -481,7 +481,7 @@ def build_default_agent_tools(
         ),
         "web_search": AgentTool(
             name="web_search",
-            description="Search the web for relevant sources.",
+            description="Search the web to discover candidate sources. Use broad discovery queries first to enumerate candidates, then exact verification queries to confirm milestones, dates, and current state. Snippets are candidate signals only, not final evidence.",
             parameters={
                 "type": "object",
                 "properties": {

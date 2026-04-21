@@ -15,10 +15,14 @@ Produce a fully annotated report with reproducible attribution. Every factual st
 3. Reuse citation numbers when the same source supports multiple claims.
 4. If a statement comes from calculation output, cite the underlying source for inputs and include the calculation in the computation log.
 5. If a claim cannot be sourced, list it under `unsourced_claims` rather than guessing.
-6. Preserve markdown structure.
+6. If a claim cannot be sourced, list it under `unsourced_claims` rather than guessing.
 7. Analytical or evaluative statements still need evidentiary support. If a statement like "risk/reward is broadly fair", "the moat is durable", or "competition is a medium-term risk" cannot be grounded in the supplied findings/computation context, list it under `unsourced_claims` rather than waving it through.
 8. When a statement is supported by multiple findings, prefer the highest-quality source and add additional support only when it materially improves attribution.
-9. Return via `complete_task`.
+9. If a claim mixes accounting/disclosure definitions too loosely (for example revenue vs total revenue/income, cash vs cash reserves vs net cash), treat that as unsupported unless the wording is narrowed to the exact sourced definition.
+10. If a sentence contains market-causality or investor-motivation language (for example "the market is discounting"), require direct support; otherwise list it under `unsourced_claims`.
+11. If an intermediate valuation number is not present in the computation log or directly reconstructible from logged inputs, list it under `unsourced_claims` rather than allowing it through.
+12. If a flagged claim looks important to the thesis, valuation, risks, or catalysts and appears likely sourceable from the supplied findings, computation log, or a bounded additional retrieval pass, prefer to describe it precisely in `unsourced_claims` so the lead can research/reconcile it on revision rather than silently deleting it.
+13. Return via `complete_task`.
 
 ## Runtime context
 

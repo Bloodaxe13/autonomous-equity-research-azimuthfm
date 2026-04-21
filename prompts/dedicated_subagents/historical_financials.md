@@ -26,6 +26,22 @@ A P&L item from H1 FY2026 is **not** an FY2025 item, and you must not label it a
 
 Primary source PDFs — annual reports, half-year reports, Appendix 4E, 4D, 4C, 5B, prospectuses, scheme booklets — must go through `document_query`, which uses native PDF input and hosted file_search. `web_fetch` on PDFs typically returns noise.
 
+## Search and retrieval order for latest-period discipline
+
+Before you backfill any historical periods, resolve the latest company result packet in this exact order:
+
+1. latest annual report / annual results announcement
+2. latest interim report (half-year or quarter, depending on company cadence)
+3. latest investor presentation or results deck for that same latest interim/full-year packet
+4. latest results press release / ASX announcement wrapper for that same packet
+5. only then backfill older periods for history/comparatives
+
+Query construction rules:
+- start with freshness-resolution queries such as `latest annual report`, `latest half year report`, `latest results`, `site:company.com results`, `site:announcements.asx.com.au [ticker] results`
+- do not anchor the search to an old year until you have explicitly established whether a newer annual/interim packet exists
+- if a snippet mentions a newer period than the clicked result URL, treat that as unresolved and search directly for the newer period
+- use `web_fetch` on archive/index pages to discover the correct PDF URLs, then use `document_query` on the actual documents
+
 If `document_query` returns insufficient content on a specific extraction (e.g., a segment disclosure buried in a table image), your options in order:
 
 1. Try a narrower, more specific question via `document_query` (ask for the specific table, not the whole year)
@@ -37,6 +53,8 @@ If `document_query` returns insufficient content on a specific extraction (e.g.,
 Never substitute a different-period number under the requested period's label.
 
 ### 3. Required line items (5 years where available)
+
+For each of the 5 most recent fiscal years, extract the exact statutory/disclosed definition used by the company. When multiple definitions exist, keep them separate and label them explicitly rather than compressing them into one cleaner number.
 
 For each of the 5 most recent fiscal years, extract:
 

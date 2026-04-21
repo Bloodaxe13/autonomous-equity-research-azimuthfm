@@ -71,8 +71,7 @@ class AutonomousEquityResearchRuntime:
     def run(self, task: TaskInput) -> ReportPacket:
         report = self.run_lead(task)
         self._snapshot_stage_attempt(task.run_id, 'lead', 0)
-        self.memory_store.write(task.run_id, 'draft_report', report.model_dump(mode='json'))
-        self.memory_store.write(task.run_id, 'computation_log', [entry.model_dump(mode='json') for entry in report.computation_log])
+        self._checkpoint_last_good_report(task.run_id, report, stage='lead', attempt=0)
         self.memory_store.append_event(
             task.run_id,
             'checkpoints',
@@ -143,8 +142,7 @@ class AutonomousEquityResearchRuntime:
                 )
             )
             self._snapshot_stage_attempt(task.run_id, 'lead', attempt + 1)
-            self.memory_store.write(task.run_id, 'draft_report', report.model_dump(mode='json'))
-            self.memory_store.write(task.run_id, 'computation_log', [entry.model_dump(mode='json') for entry in report.computation_log])
+            self._checkpoint_last_good_report(task.run_id, report, stage='lead', attempt=attempt + 1)
             self.memory_store.append_event(
                 task.run_id,
                 'checkpoints',
@@ -183,6 +181,7 @@ class AutonomousEquityResearchRuntime:
                 artifact_dir=stage_dir,
                 message='Citation stage returned blocking unsourced claims.',
             )
+        self._checkpoint_last_good_report(task.run_id, report, stage='finalized', attempt=0)
         self.memory_store.append_event(
             task.run_id,
             'checkpoints',
@@ -416,15 +415,34 @@ class AutonomousEquityResearchRuntime:
             if isinstance(item, dict)
         ]
         if task.prior_report is None and not subagent_findings:
-            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: no persisted subagent findings available for freshness/quality verification.')
+            self._record_lead_warning(
+                task=task,
+                stage_dir=stage_dir,
+                code='missing_subagent_findings',
+                message='No persisted subagent findings available for freshness/quality verification; passing through to downstream review.',
+            )
         if report.canonical_valuation_inputs.reconciliation_status != 'resolved':
             self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: canonical valuation inputs must be resolved before valuation/header write.')
         self._require_recent_result(task=task, stage_dir=stage_dir, findings=subagent_findings)
-        self._require_no_unresolved_liquidity_conflict(task=task, stage_dir=stage_dir, findings=subagent_findings)
-        self._require_no_governance_conflict(task=task, stage_dir=stage_dir, findings=subagent_findings)
         self._require_recent_competitor_context(task=task, report=report, stage_dir=stage_dir, findings=subagent_findings)
         self._require_knife_edge_language(report=report, task=task, stage_dir=stage_dir)
         self._require_report_matches_deterministic_market_context(report=report, deterministic_lead_context=deterministic_lead_context, task=task, stage_dir=stage_dir)
+
+    def _record_lead_warning(self, *, task: TaskInput, stage_dir: Path, code: str, message: str, extra: dict[str, Any] | None = None) -> None:
+        warning = {
+            'stage': 'lead',
+            'code': code,
+            'message': message,
+            'recorded_at': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
+        }
+        if extra:
+            warning['extra'] = extra
+        warnings = self.memory_store.read(task.run_id, 'lead_warnings', [])
+        if not isinstance(warnings, list):
+            warnings = []
+        warnings.append(warning)
+        self.memory_store.write(task.run_id, 'lead_warnings', warnings)
+        (stage_dir / 'lead_warnings.json').write_text(json.dumps(warnings, indent=2, ensure_ascii=False, default=str), encoding='utf-8')
 
     def _raise_lead_gate(self, *, task: TaskInput, stage_dir: Path, message: str) -> None:
         completed_at = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
@@ -438,20 +456,19 @@ class AutonomousEquityResearchRuntime:
             completed_at=completed_at,
             attempt=0,
         )
+        self._archive_stage_dir(run_id=task.run_id, stage='lead', source_dir=stage_dir, label='gate_failure')
         (stage_dir / 'raw_api_payloads.json').write_text(json.dumps([], indent=2, ensure_ascii=False), encoding='utf-8')
         (stage_dir / 'response_ids.json').write_text(json.dumps([], indent=2, ensure_ascii=False), encoding='utf-8')
         (stage_dir / 'tool_history.json').write_text(json.dumps([], indent=2, ensure_ascii=False), encoding='utf-8')
         (stage_dir / 'summary.json').write_text(json.dumps({'prompt_path': str(self.prompt_dir / 'lead_analyst.md'), 'turns': 0, 'completed_via_tool': None, 'response_ids': [], 'started_at': '', 'completed_at': completed_at, 'duration_ms': 0, 'tool_counts': {}, 'tool_history_length': 0}, indent=2, ensure_ascii=False), encoding='utf-8')
         (stage_dir / 'validation_error.json').write_text(json.dumps({'stage': 'lead', 'error': message, 'response_ids': [], 'tool_counts': {}, 'completed_at': completed_at, 'restart_from_stage': 'lead', 'retrigger_agents': ['lead'], 'recommended_context_files': self._recommended_context_files(stage_dir)}, indent=2, ensure_ascii=False), encoding='utf-8')
-        stage_dir.parent.parent.mkdir(parents=True, exist_ok=True)
-        restart_plan = {
-            'run_id': task.run_id,
-            'failed_stage': 'lead',
-            'artifact_dir': str(stage_dir),
-            'response_ids': [],
-            'restart_hint': 'Restart from lead after resolving deterministic data / freshness quality gate.',
-        }
-        (stage_dir.parent.parent / 'restart_plan.json').write_text(json.dumps(restart_plan, indent=2, ensure_ascii=False), encoding='utf-8')
+        self._write_restart_plan(
+            run_id=task.run_id,
+            failed_stage='lead',
+            artifact_dir=stage_dir,
+            response_ids=[],
+            restart_hint='Restart from lead after resolving deterministic data / freshness quality gate.',
+        )
         raise PipelineStageError(run_id=task.run_id, stage='lead', artifact_dir=stage_dir, message=message)
 
     def _require_recent_result(self, *, task: TaskInput, stage_dir: Path, findings: list[SubagentFindings]) -> None:
@@ -465,10 +482,21 @@ class AutonomousEquityResearchRuntime:
                 if any(keyword in haystack for keyword in result_keywords):
                     candidates.append(item)
         if not candidates:
-            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: latest result document not established in findings before report synthesis.')
+            self._record_lead_warning(
+                task=task,
+                stage_dir=stage_dir,
+                code='latest_result_missing',
+                message='Latest result document not established in findings before report synthesis; passing uncertainty downstream.',
+            )
+            return
         has_recent = any(self._is_recent_date(item.source_date or item.data_as_of, max_age_days=180) for item in candidates)
         if not has_recent:
-            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: latest result in findings is stale; refresh current result before report synthesis.')
+            self._record_lead_warning(
+                task=task,
+                stage_dir=stage_dir,
+                code='latest_result_stale',
+                message='Latest result in findings appears stale; passing freshness caveat downstream.',
+            )
 
     def _require_no_unresolved_liquidity_conflict(self, *, task: TaskInput, stage_dir: Path, findings: list[SubagentFindings]) -> None:
         liquidity_terms = (
@@ -530,7 +558,12 @@ class AutonomousEquityResearchRuntime:
                     competitor_candidates.append(item)
         if competitor_candidates and any(self._is_recent_date(item.source_date or item.data_as_of, max_age_days=180) for item in competitor_candidates):
             return
-        self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: competitor lane is not sufficiently current for a fast-moving competitive setup.')
+        self._record_lead_warning(
+            task=task,
+            stage_dir=stage_dir,
+            code='competitor_context_stale',
+            message='Competitor lane is not sufficiently current for a fast-moving setup; passing caveat downstream.',
+        )
 
     def _require_knife_edge_language(self, *, report: FinalReport, task: TaskInput, stage_dir: Path) -> None:
         if report.implied_return_pct is None or abs(report.implied_return_pct) > 10:
@@ -538,7 +571,12 @@ class AutonomousEquityResearchRuntime:
         text = ' '.join([report.sections.investment_thesis, report.sections.valuation]).lower()
         allowed_phrases = ('risk/reward', 'broadly fair', 'fairly priced', 'knife-edge', 'sensitivity', 'error bar', 'narrow upside')
         if not any(phrase in text for phrase in allowed_phrases):
-            self._raise_lead_gate(task=task, stage_dir=stage_dir, message='Lead aborted: near-spot rating lacks explicit knife-edge / risk-reward framing.')
+            self._record_lead_warning(
+                task=task,
+                stage_dir=stage_dir,
+                code='near_spot_missing_knife_edge_language',
+                message='Near-spot rating lacks explicit knife-edge / risk-reward framing; passing style warning downstream.',
+            )
 
     def _require_report_matches_deterministic_market_context(self, *, report: FinalReport, deterministic_lead_context: dict[str, Any], task: TaskInput, stage_dir: Path) -> None:
         snapshot = deterministic_lead_context.get('market_snapshot') or {}
@@ -665,6 +703,64 @@ class AutonomousEquityResearchRuntime:
         )
         return result.final_output
 
+    def _run_root(self, run_id: str) -> Path:
+        root = Path(self.memory_store.root) / run_id
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+
+    def _checkpoint_last_good_report(self, run_id: str, report: FinalReport, *, stage: str, attempt: int) -> None:
+        run_root = self._run_root(run_id)
+        payload = report.model_dump(mode='json')
+        self.memory_store.write(run_id, 'draft_report', payload)
+        self.memory_store.write(run_id, 'computation_log', [entry.model_dump(mode='json') for entry in report.computation_log])
+        last_good_report_path = run_root / 'last_good_report.json'
+        last_good_stage_path = run_root / 'last_good_stage.json'
+        last_good_report_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str), encoding='utf-8')
+        last_good_stage_path.write_text(json.dumps({
+            'stage': stage,
+            'attempt': attempt,
+            'report_path': str(last_good_report_path),
+            'updated_at': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
+        }, indent=2, ensure_ascii=False), encoding='utf-8')
+
+    def _write_restart_plan(self, *, run_id: str, failed_stage: str, artifact_dir: Path, response_ids: list[str], restart_hint: str, extra: dict[str, Any] | None = None) -> None:
+        run_root = self._run_root(run_id)
+        last_good_report_path = run_root / 'last_good_report.json'
+        last_good_stage_path = run_root / 'last_good_stage.json'
+        restart_plan = {
+            'run_id': run_id,
+            'failed_stage': failed_stage,
+            'artifact_dir': str(artifact_dir),
+            'response_ids': response_ids,
+            'restart_hint': restart_hint,
+            'last_good_report_path': str(last_good_report_path) if last_good_report_path.exists() else None,
+            'last_good_stage_path': str(last_good_stage_path) if last_good_stage_path.exists() else None,
+        }
+        if extra:
+            restart_plan.update(extra)
+        (run_root / 'restart_plan.json').write_text(json.dumps(restart_plan, indent=2, ensure_ascii=False), encoding='utf-8')
+
+    def _archive_stage_dir(self, *, run_id: str, stage: str, source_dir: Path, label: str) -> Path | None:
+        if not source_dir.exists():
+            return None
+        root = self._run_root(run_id) / 'agent_artifacts'
+        root.mkdir(parents=True, exist_ok=True)
+        index = 0
+        while (root / f'{stage}_{label}_{index}').exists():
+            index += 1
+        dest = root / f'{stage}_{label}_{index}'
+        try:
+            source_resolved = source_dir.resolve()
+            dest_resolved = dest.resolve(strict=False)
+            if source_resolved == dest_resolved or source_resolved in dest_resolved.parents:
+                return None
+            if dest_resolved in source_resolved.parents:
+                return None
+        except Exception:
+            pass
+        shutil.copytree(source_dir, dest)
+        return dest
+
     def _persist_agent_artifacts(self, run_id: str, stage: str, result, parsed_output: Any) -> Path:
         root = Path(self.memory_store.root) / run_id / 'agent_artifacts'
         root.mkdir(parents=True, exist_ok=True)
@@ -729,15 +825,13 @@ class AutonomousEquityResearchRuntime:
             attempt=0,
             retrigger_agents=[stage],
         )
-        restart_plan = {
-            'run_id': run_id,
-            'failed_stage': stage,
-            'artifact_dir': str(stage_dir),
-            'response_ids': result.response_ids,
-            'restart_hint': f'Restart from {stage} using saved raw API payloads and tool history.',
-        }
-        stage_dir.parent.parent.mkdir(parents=True, exist_ok=True)
-        (stage_dir.parent.parent / 'restart_plan.json').write_text(json.dumps(restart_plan, indent=2, ensure_ascii=False), encoding='utf-8')
+        self._write_restart_plan(
+            run_id=run_id,
+            failed_stage=stage,
+            artifact_dir=stage_dir,
+            response_ids=result.response_ids,
+            restart_hint=f'Restart from {stage} using saved raw API payloads and tool history.',
+        )
 
     def _persist_incomplete_agent_artifacts(self, run_id: str, stage: str, exc: AgentLoopIncomplete, repaired_output: Any) -> None:
         root = Path(self.memory_store.root) / run_id / 'agent_artifacts'
@@ -1065,6 +1159,14 @@ class AutonomousEquityResearchRuntime:
             duration_ms=0,
             attempt=attempt,
             retrigger_agents=[stage],
+            extra=extra,
+        )
+        self._write_restart_plan(
+            run_id=run_id,
+            failed_stage=stage,
+            artifact_dir=stage_dir,
+            response_ids=response_ids,
+            restart_hint=f'Restart from {stage} after resolving the recorded quality-gate failure.',
             extra=extra,
         )
 

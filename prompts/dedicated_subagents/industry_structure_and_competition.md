@@ -32,6 +32,20 @@ Threats that could materially impair the profit pool over the next 1-5 years. No
 
 A "threat" has an identifiable actor and an identifiable mechanism. "Competition is increasing" is not a threat — name the actor and the mechanism.
 
+### Search phases for competitor-set completeness
+
+Do the competition search in two explicit phases:
+
+1. Enumerate the candidate set first
+   - build a list of all named direct substitutes / overlapping competitors relevant to the core profit pool
+   - use broad candidate-generation queries before choosing the top threats
+   - examples: `[disease] competitors`, `[disease] phase 3`, `[disease] NDA`, `[company] competitor [disease]`, `[drug] [disease] trial`
+2. Verify each candidate on primary/current sources
+   - once a named candidate exists, switch to exact verification queries using company name, asset/drug name, milestone, and date
+   - prefer company IR pages, regulator pages, trial registries, and conference abstracts over generic summary pages
+
+Do NOT collapse to a single “main threat” before the candidate set is built. If you have one named threat and evidence that another direct substitute may exist, the lane is incomplete.
+
 **If you produce a threat list of zero items, verify it.** Zero-threat claims are usually research failures, not business facts. A shipped report saying "competitive threat is limited" when a named oral substitute is in late-stage registration is a classic failure mode.
 
 ### 3. For each threat, resolve six fields

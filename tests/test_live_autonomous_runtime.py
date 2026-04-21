@@ -230,7 +230,10 @@ def test_build_subagent_prompt_path_uses_dedicated_base_plus_lane_when_available
     assert prompt_path.exists()
     text = prompt_path.read_text(encoding='utf-8')
     assert 'You are a research subagent working as part of a team.' in text
+    assert '<query_strategy>' in text
+    assert 'broad candidate enumeration' in text
     assert '# Facet: industry_structure_and_competition' in text
+    assert 'Do NOT collapse to a single “main threat” before the candidate set is built.' in text
     assert prompt_path.parent.name == '_rendered_prompts'
 
 
@@ -298,6 +301,22 @@ def test_run_subagent_persists_rendered_dedicated_prompt_path_in_artifacts(tmp_p
     assert rendered_prompt.exists()
     rendered_text = rendered_prompt.read_text(encoding='utf-8')
     assert '# Facet: industry_structure_and_competition' in rendered_text
+    assert '<query_strategy>' in rendered_text
+
+
+def test_historical_financials_prompt_includes_latest_packet_retrieval_order(tmp_path: Path):
+    runtime = _runtime(tmp_path, [])
+
+    prompt_path = runtime._build_subagent_prompt_path(
+        brief=_minimal_brief('historical_financials'),
+        run_id='run-historical-order',
+    )
+
+    text = prompt_path.read_text(encoding='utf-8')
+    assert 'latest annual report / annual results announcement' in text
+    assert 'latest interim report' in text
+    assert 'latest investor presentation or results deck' in text
+    assert 'do not anchor the search to an old year' in text
 
 
 def test_recorded_cuv_bad_lead_output_fails_validation():
@@ -919,7 +938,7 @@ def test_run_lead_fails_closed_when_market_data_conflicts(tmp_path: Path, monkey
     assert 'conflict' in exc_info.value.message.lower()
 
 
-def test_run_lead_fails_when_recent_result_is_missing_from_subagent_findings(tmp_path: Path):
+def test_run_lead_records_warning_when_recent_result_is_missing_from_subagent_findings(tmp_path: Path):
     valid_report = _valid_final_report_payload()
     runtime = _runtime(tmp_path, [
         FakeResponse({'id': 'lead_1', 'output': [{'type': 'function_call', 'name': 'complete_task', 'call_id': 'lead_done', 'arguments': json.dumps({'payload': valid_report})}]})
@@ -950,13 +969,14 @@ def test_run_lead_fails_when_recent_result_is_missing_from_subagent_findings(tmp
         }
     ])
 
-    with pytest.raises(PipelineStageError) as exc_info:
-        runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'))
+    report = runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'))
 
-    assert 'latest result' in exc_info.value.message.lower()
+    assert report.ticker == 'ACME'
+    warnings = json.loads((tmp_path / 'memory' / 'run-1' / 'agent_artifacts' / 'lead' / 'lead_warnings.json').read_text(encoding='utf-8'))
+    assert any(item['code'] == 'latest_result_stale' for item in warnings)
 
 
-def test_run_lead_fails_when_material_caveat_is_unresolved(tmp_path: Path):
+def test_run_lead_does_not_abort_on_liquidity_caveat_notes_alone(tmp_path: Path):
     valid_report = _valid_final_report_payload()
     runtime = _runtime(tmp_path, [
         FakeResponse({'id': 'lead_1', 'output': [{'type': 'function_call', 'name': 'complete_task', 'call_id': 'lead_done', 'arguments': json.dumps({'payload': valid_report})}]})
@@ -1010,10 +1030,8 @@ def test_run_lead_fails_when_material_caveat_is_unresolved(tmp_path: Path):
         }
     ])
 
-    with pytest.raises(PipelineStageError) as exc_info:
-        runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'))
-
-    assert 'caveat' in exc_info.value.message.lower() or 'term deposit' in exc_info.value.message.lower()
+    report = runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'))
+    assert report.ticker == 'ACME'
 
 
 def test_run_pipeline_fails_when_red_team_does_not_reground(tmp_path: Path):
@@ -1056,7 +1074,7 @@ def test_run_pipeline_passes_when_red_team_uses_grounding_tools(tmp_path: Path):
     assert packet.red_team.verdict == 'covered_ground'
 
 
-def test_run_lead_fails_when_near_spot_rating_lacks_knife_edge_language(tmp_path: Path):
+def test_run_lead_records_warning_when_near_spot_rating_lacks_knife_edge_language(tmp_path: Path):
     valid_report = _valid_final_report_payload() | {
         'rating': 'Hold',
         'price_target_aud': 10.5,
@@ -1075,7 +1093,76 @@ def test_run_lead_fails_when_near_spot_rating_lacks_knife_edge_language(tmp_path
         FakeResponse({'id': 'lead_1', 'output': [{'type': 'function_call', 'name': 'complete_task', 'call_id': 'lead_done', 'arguments': json.dumps({'payload': valid_report})}]})
     ])
 
-    with pytest.raises(PipelineStageError) as exc_info:
-        runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'))
+    report = runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'))
 
-    assert 'knife-edge' in exc_info.value.message.lower() or 'risk/reward' in exc_info.value.message.lower()
+    assert report.rating == 'Hold'
+    warnings = json.loads((tmp_path / 'memory' / 'run-1' / 'agent_artifacts' / 'lead' / 'lead_warnings.json').read_text(encoding='utf-8'))
+    assert any(item['code'] == 'near_spot_missing_knife_edge_language' for item in warnings)
+
+
+def test_run_lead_records_warning_when_competitor_context_is_stale(tmp_path: Path):
+    valid_report = _valid_final_report_payload() | {
+        'sections': _valid_final_report_payload()['sections'] | {
+            'industry_competitive': 'Competition includes Disc Medicine and bitopertin programs advancing toward the market.',
+            'investment_thesis': 'Competitive pressure from Disc Medicine matters to the thesis.',
+            'risks': 'A faster Disc Medicine readout could erode the setup.',
+            'catalysts': 'Competitor trial milestones remain relevant.',
+        },
+    }
+    runtime = _runtime(tmp_path, [
+        FakeResponse({'id': 'lead_1', 'output': [{'type': 'function_call', 'name': 'complete_task', 'call_id': 'lead_done', 'arguments': json.dumps({'payload': valid_report})}]})
+    ])
+    runtime.memory_store.write('run-1', 'findings_wave_1', [
+        {
+            'facet': 'newsflow_catalysts_corporate_actions',
+            'ticker': 'ACME',
+            'tool_calls_used': 1,
+            'findings': [
+                {
+                    'claim': 'Latest half-year result',
+                    'data': {'revenue': 20},
+                    'source_url': 'https://example.test/h1fy26.pdf',
+                    'source_tier': 1,
+                    'source_title': 'First half results FY2026',
+                    'source_date': '2026-02-26',
+                    'data_as_of': '2025-12-31',
+                    'period_label': 'H1 FY2026',
+                    'retrieval_date': '2026-04-20',
+                    'confidence': 'high',
+                    'notes': 'Primary PDF',
+                }
+            ],
+            'not_found': [],
+            'contradictions': [],
+            'summary': 'Recent result found',
+        },
+        {
+            'facet': 'industry_structure_and_competition',
+            'ticker': 'ACME',
+            'tool_calls_used': 1,
+            'findings': [
+                {
+                    'claim': 'Disc Medicine remains a competitor in erythropoietic disease.',
+                    'data': {'program': 'bitopertin'},
+                    'source_url': 'https://example.test/competitor-update',
+                    'source_tier': 2,
+                    'source_title': 'Competitor update',
+                    'source_date': '2025-01-15',
+                    'data_as_of': '2025-01-15',
+                    'period_label': 'FY2025',
+                    'retrieval_date': '2026-04-20',
+                    'confidence': 'medium',
+                    'notes': 'Old competitor page',
+                }
+            ],
+            'not_found': [],
+            'contradictions': [],
+            'summary': 'Competitor context is stale',
+        },
+    ])
+
+    report = runtime.run_lead(TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'))
+
+    assert report.ticker == 'ACME'
+    warnings = json.loads((tmp_path / 'memory' / 'run-1' / 'agent_artifacts' / 'lead' / 'lead_warnings.json').read_text(encoding='utf-8'))
+    assert any(item['code'] == 'competitor_context_stale' for item in warnings)

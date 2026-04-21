@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -48,7 +49,10 @@ def test_invalid_lead_output_raises_and_persists_restart_artifacts(tmp_path: Pat
     assert (exc.artifact_dir / 'raw_api_payloads.json').exists()
     assert (exc.artifact_dir / 'validation_error.json').exists()
     assert (exc.artifact_dir / 'failure_envelope.json').exists()
-    assert (tmp_path / 'memory' / 'run-1' / 'restart_plan.json').exists()
+    restart_plan = json.loads((tmp_path / 'memory' / 'run-1' / 'restart_plan.json').read_text(encoding='utf-8'))
+    assert restart_plan['failed_stage'] == 'lead'
+    assert restart_plan['last_good_report_path'] is None
+    assert restart_plan['last_good_stage_path'] is None
 
 
 def test_incomplete_subagent_persists_raw_failure_artifacts(tmp_path: Path):
@@ -66,3 +70,65 @@ def test_incomplete_subagent_persists_raw_failure_artifacts(tmp_path: Path):
     assert (stage_dir / 'final_text.txt').read_text(encoding='utf-8') == 'partial progress'
     assert (stage_dir / 'failure_envelope.json').exists()
     assert (stage_dir / 'repaired_output.json').exists()
+
+
+def test_checkpoint_last_good_report_writes_authoritative_files(tmp_path: Path):
+    from src.contracts_runtime import FinalReport
+    from tests.test_live_autonomous_runtime import _valid_final_report_payload
+
+    runtime = _runtime(tmp_path, [])
+    report = FinalReport.model_validate(_valid_final_report_payload())
+    runtime._checkpoint_last_good_report('run-1', report, stage='lead', attempt=0)
+
+    run_root = tmp_path / 'memory' / 'run-1'
+    last_good_report = run_root / 'last_good_report.json'
+    last_good_stage = run_root / 'last_good_stage.json'
+    assert last_good_report.exists()
+    assert last_good_stage.exists()
+    stage_meta = json.loads(last_good_stage.read_text(encoding='utf-8'))
+    assert stage_meta['stage'] == 'lead'
+    assert stage_meta['attempt'] == 0
+    assert stage_meta['report_path'] == str(last_good_report)
+
+
+def test_restart_plan_includes_last_good_paths_when_available(tmp_path: Path):
+    from src.contracts_runtime import FinalReport
+    from tests.test_live_autonomous_runtime import _valid_final_report_payload
+
+    runtime = _runtime(tmp_path, [])
+    report = FinalReport.model_validate(_valid_final_report_payload())
+    runtime._checkpoint_last_good_report('run-1', report, stage='lead', attempt=0)
+
+    stage_dir = tmp_path / 'memory' / 'run-1' / 'agent_artifacts' / 'citation'
+    runtime._write_restart_plan(
+        run_id='run-1',
+        failed_stage='citation',
+        artifact_dir=stage_dir,
+        response_ids=['resp_1'],
+        restart_hint='Restart citation',
+    )
+
+    restart_plan = json.loads((tmp_path / 'memory' / 'run-1' / 'restart_plan.json').read_text(encoding='utf-8'))
+    assert restart_plan['failed_stage'] == 'citation'
+    assert restart_plan['last_good_report_path'].endswith('last_good_report.json')
+    assert restart_plan['last_good_stage_path'].endswith('last_good_stage.json')
+
+
+def test_raise_lead_gate_archives_existing_stage_dir_before_overwrite(tmp_path: Path):
+    runtime = _runtime(tmp_path, [])
+    stage_dir = tmp_path / 'memory' / 'run-1' / 'agent_artifacts' / 'lead'
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    (stage_dir / 'parsed_output.json').write_text('{"draft": true}', encoding='utf-8')
+    (stage_dir / 'summary.json').write_text('{"turns": 5}', encoding='utf-8')
+
+    with pytest.raises(PipelineStageError):
+        runtime._raise_lead_gate(
+            task=TaskInput(ticker='ACME', tier=ReportTier.INITIATION, run_id='run-1'),
+            stage_dir=stage_dir,
+            message='Lead aborted: test gate.',
+        )
+
+    archived = tmp_path / 'memory' / 'run-1' / 'agent_artifacts' / 'lead_gate_failure_0'
+    assert archived.exists()
+    assert (archived / 'parsed_output.json').exists()
+    assert json.loads((archived / 'parsed_output.json').read_text(encoding='utf-8'))['draft'] is True

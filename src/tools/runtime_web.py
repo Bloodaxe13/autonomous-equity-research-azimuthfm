@@ -53,6 +53,7 @@ class OpenAIWebSearchAdapter:
         )
         payload = response.model_dump() if hasattr(response, "model_dump") else {}
         results: list[SearchResult] = []
+        fallback_results: list[SearchResult] = []
         seen_urls: set[str] = set()
         for item in payload.get("output", []):
             if item.get("type") == "web_search_call":
@@ -69,7 +70,7 @@ class OpenAIWebSearchAdapter:
                             source=result.get("source"),
                         )
                     )
-            elif item.get("type") == "message":
+            elif item.get("type") == "message" and not results:
                 for content in item.get("content", []) or []:
                     for ann in content.get("annotations", []) or []:
                         if ann.get("type") != "url_citation":
@@ -78,21 +79,22 @@ class OpenAIWebSearchAdapter:
                         if not url or url in seen_urls:
                             continue
                         seen_urls.add(url)
-                        results.append(
+                        fallback_results.append(
                             SearchResult(
                                 title=ann.get("title", url),
                                 url=url,
                                 snippet=content.get("text", ""),
-                                source="openai_web_search_annotation",
+                                source="openai_web_search_annotation_fallback",
                             )
                         )
-                        if len(results) >= limit:
+                        if len(fallback_results) >= limit:
                             break
-                    if len(results) >= limit:
+                    if len(fallback_results) >= limit:
                         break
             if len(results) >= limit:
                 break
-        return SearchResults(query=query, results=results[:limit])
+        final_results = results if results else fallback_results
+        return SearchResults(query=query, results=final_results[:limit])
 
 
 class HttpFetchAdapter:

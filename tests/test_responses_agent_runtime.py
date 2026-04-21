@@ -225,6 +225,16 @@ def test_default_tools_support_memory_code_and_subagent(tmp_path: Path):
     assert code_result["result"] == 42
 
 
+def test_web_search_tool_description_guides_discovery_then_verification(tmp_path: Path):
+    executor = _tools(JsonMemoryStore(tmp_path / "memory"), client=FakeClient([]))
+    web_search_tool = executor.tools["web_search"]
+
+    assert "candidate sources" in web_search_tool.description
+    assert "broad discovery queries" in web_search_tool.description
+    assert "exact verification queries" in web_search_tool.description
+    assert "candidate signals only" in web_search_tool.description
+
+
 def test_agent_loop_incomplete_carries_raw_responses_and_timing(tmp_path: Path):
     prompt_file = tmp_path / "agent.md"
     prompt_file.write_text("Looping prompt.", encoding="utf-8")
